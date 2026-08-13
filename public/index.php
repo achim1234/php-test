@@ -1,79 +1,99 @@
 <?php
-// Include the Composer autoloader to load dependencies
-require '../vendor/autoload.php';
 
-use Packages\AsJs\Service\JSHelper;
-use Packages\AsCsv\Service\CSVHelperTwo;
-use Packages\AsCsv\Service\Index;
+require_once __DIR__ . '/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
+use Classes\User;
+use Classes\Counter;
+use Classes\FileHandler;
+use Classes\ApiHandler;
+use Classes\FormHandler;
+use Classes\NewsFeed;
+use Classes\Math;
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Instantiate the class when the form is submitted
+$math = new Math();
+$testNumbers = [4, 7, 10, 15, 22, -2, -3, 0];
 
-
-
-    // Check which button was clicked using the name attribute
-    if (isset($_POST['btnDownloadCsv'])) {
-        $csvHelper = new CSVHelperTwo();
-        $csvHelper->exportToFile();
-    } elseif (isset($_POST['button2'])) {
-        echo("huhu else");
-    }
+echo "<h1>Math Class Test</h1>";
+foreach ($testNumbers as $number) {
+    echo "Number $number is " . ($math->isEven($number) ? 'Even' : 'Odd') . "<br>";
 }
 
+echo "<h2>Pi Calculation</h2>";
+echo "Pi with 100 decimal places: " . $math->getPi() . "<br>";
+
+echo "<h2>Rectangle Area Calculation</h2>";
+$rectangles = [
+    ['a' => 5.5, 'b' => 10],
+    ['a' => 3, 'b' => 4],
+    ['a' => 10.2, 'b' => 2.5]
+];
+foreach ($rectangles as $rect) {
+    $a = $rect['a'];
+    $b = $rect['b'];
+    echo "Area of rectangle with a=$a and b=$b is: " . $math->calculateRectangleArea($a, $b) . "<br>";
+}
+
+$newsFeed = new NewsFeed();
+$newsFeed->fetch();
+//$newsFeed->getArticles();
 
 
 
 
-new Index();
 
 
 
 
 
 
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PHP Application</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <header>
-        <h1>Welcome to My PHP Application</h1>
-    </header>
-    <main>
-
-
-        Welcome <?php echo $_POST["name"]; ?><br>
-        Your email address is: <?php echo $_POST["email"]; ?>
 
 
 
-        <form method="POST" action="">
-            <button type="submit" name="btnDownloadCsv">Download CSV</button>
-        </form>
+//die(__DIR__);
+//
+//
+//$apiHandler = new ApiHandler('https://api.open-meteo.com/v1/forecast?latitude=48.13&longitude=11.58&current=temperature_2m,wind_speed_10m');
+//
+//$formHandler = new FormHandler();
+//
+//echo($formHandler->createFrom());
+//
+//
+//
+//if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+//    $handler = new FormHandler();
+//    $handler->handle();
+//}
 
 
 
-
-        <p>This is a simple example to include Composer's autoload file and HTML structure.</p>
-    </main>
-    <footer>
-        <p>&copy; <?php echo date("Y"); ?> My Application. All rights reserved.</p>
-    </footer>
-
-    <?php
-        $jsHelper = new JSHelper();
-        $jsHelper->includeJSFile('src/js/main.js');
-    ?>
-
-
-</body>
-</html>
+//$user = new User();
+//$counter = new Counter();
+//
+//echo($user->hello());
+//echo($counter->count(1));
+//
+//
+//echo('<br>');
+//echo('<br>');
+//echo('<br>');
+//
+//
+//$fileHandler = new FileHandler();
+//#$filename = 'files/testäääääää.txt';
+//$filename = 'filesddd/test.txt';
+//$fileHandler->createNewFile($filename);
+//$fileHandler->addTextToFile($filename, 'This is a test');
+//$fileHandler->addTextToFile($filename, 'This is a test');
+//$fileHandler->addTextToFile($filename, 'This is a test');
+//$fileHandler->addTextToFile($filename, 'This is a test');
+//$fileHandler->addTextToFile($filename, 'This is a test');
+//$fileHandler->addTextToFile($filename, 'This is a test');
+//$fileHandler->addTextToFile($filename, 'This is a test');
+//$fileHandler->addTextToFile($filename, 'This is a test');
+//$fileHandler->addTextToFile($filename, 'This is a test');
+//$fileHandler->addTextToFile($filename, 'This is a test');
 
 
 

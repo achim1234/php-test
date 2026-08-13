@@ -1,27 +1,25 @@
 name: php-test
 type: typo3
 docroot: public
-php_version: "8.1"
+php_version: "8.3"
 webserver_type: apache-fpm
-router_http_port: "8999"
+router_http_port: "33333"
 router_https_port: "443"
-host_db_port: "3999"
+host_db_port: "33334"
 xdebug_enabled: false
 additional_hostnames:
   - main
 additional_fqdns: []
 database:
   type: mariadb
-  version: "10.3"
+  version: "10.11"
 nfs_mount_enabled: false
 mutagen_enabled: false
 use_dns_when_possible: true
-composer_version: "2.3"
-nodejs_version: "16"
+composer_version: "2.9"
+nodejs_version: "24"
 timezone: Europe/Berlin
-web_environment:
-  - TYPO3_CONTEXT=Development/Websedit/DDEV
-  - TYPO3_MAJOR_VERSION=12
+
 
 # Key features of ddev's config.yaml:
 

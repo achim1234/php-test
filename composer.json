@@ -1,11 +1,5 @@
 {
-    "name": "achim/php-test",
-    "type": "project",
-    "require": {},
-    "autoload": {
-        "psr-4": {
-            "Packages\\AsCsv\\": "packages/as_csv/Classes/",
-            "Packages\\AsJs\\": "packages/as_js/Classes/"
-        }
+    "require": {
+        "guzzlehttp/guzzle": "^7.0"
     }
 }
