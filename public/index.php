@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = "Failed to move uploaded file.";
         }
-    } elseif (isset($_POST['library_image'])) {
+    } elseif (!empty($_POST['library_image'])) {
         // Selection from library
         $libImage = $_POST['library_image'];
         $libPath = __DIR__ . '/lib/' . $libImage;
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = "Library image not found.";
         }
-    } elseif (isset($_POST['source_file'])) {
+    } elseif (!empty($_POST['source_file'])) {
         // Re-glitching existing file
         $sourceFile = $_POST['source_file'];
         // Basic security check: ensure it's just a filename in the uploads dir
