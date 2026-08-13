@@ -133,7 +133,15 @@ class PhotoGlitcher
             imagecopy($dst, $dst, $s, $y, 0, $y, $width, $h);
         }
 
-        $result = imagejpeg($dst, $destPath, 80);
+        // Save based on MIME type to preserve quality/format
+        if ($mime === 'image/png') {
+            // For PNG, quality is 0-9 (0 = no compression, 9 = max compression)
+            $result = imagepng($dst, $destPath, 0);
+        } else {
+            // For JPEG, quality is 0-100 (default is ~75)
+            $result = imagejpeg($dst, $destPath, 100);
+        }
+
         imagedestroy($src);
         imagedestroy($dst);
 
