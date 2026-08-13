@@ -42,13 +42,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $rgbShift = isset($_POST['rgb_shift']) ? (int)$_POST['rgb_shift'] : 10;
         $jitter = isset($_POST['jitter']) ? (int)$_POST['jitter'] : 20;
         $scanlines = isset($_POST['scanlines']) ? (int)$_POST['scanlines'] : 10;
+        $brightness = isset($_POST['brightness']) ? (int)$_POST['brightness'] : 0;
+        $contrast = isset($_POST['contrast']) ? (int)$_POST['contrast'] : 0;
+        $invert = isset($_POST['invert']) && $_POST['invert'] === '1';
+        $pixelate = isset($_POST['pixelate']) ? (int)$_POST['pixelate'] : 0;
+        $vJitter = isset($_POST['v_jitter']) ? (int)$_POST['v_jitter'] : 0;
 
         $sourcePath = $uploadDir . $sourceFile;
         $destFilename = 'glitched_' . $sourceFile;
         $destPath = $uploadDir . $destFilename;
 
         $glitcher = new PhotoGlitcher();
-        if ($glitcher->applyGlitch($sourcePath, $destPath, $rgbShift, $jitter, $scanlines)) {
+        if ($glitcher->applyGlitch($sourcePath, $destPath, $rgbShift, $jitter, $scanlines, $brightness, $contrast, $invert, $pixelate, $vJitter)) {
             $glitchedImage = 'uploads/' . $destFilename . '?t=' . time();
             
             // If it's an AJAX request, return JSON
@@ -109,13 +114,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="control-group">
-                <label for="jitter">Jitter Amount: <span id="val_jitter">20</span></label>
+                <label for="jitter">Horizontal Jitter: <span id="val_jitter">20</span></label>
                 <input type="range" name="jitter" id="jitter" min="0" max="100" value="20">
+            </div>
+
+            <div class="control-group">
+                <label for="v_jitter">Vertical Jitter: <span id="val_v_jitter">0</span></label>
+                <input type="range" name="v_jitter" id="v_jitter" min="0" max="100" value="0">
             </div>
 
             <div class="control-group">
                 <label for="scanlines">Scanlines / Static: <span id="val_scanlines">10</span></label>
                 <input type="range" name="scanlines" id="scanlines" min="0" max="50" value="10">
+            </div>
+
+            <div class="control-group">
+                <label for="pixelate">Pixelate: <span id="val_pixelate">0</span></label>
+                <input type="range" name="pixelate" id="pixelate" min="0" max="20" value="0">
+            </div>
+
+            <div class="control-group">
+                <label for="brightness">Brightness: <span id="val_brightness">0</span></label>
+                <input type="range" name="brightness" id="brightness" min="-100" max="100" value="0">
+            </div>
+
+            <div class="control-group">
+                <label for="contrast">Contrast: <span id="val_contrast">0</span></label>
+                <input type="range" name="contrast" id="contrast" min="-100" max="100" value="0">
+            </div>
+
+            <div class="control-group">
+                <label for="invert" style="display: inline;">Invert Colors:</label>
+                <input type="checkbox" name="invert" id="invert" value="1">
             </div>
             
             <div class="button-group">
@@ -140,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('glitchForm');
-            const sliders = form.querySelectorAll('input[type="range"]');
+            const controls = form.querySelectorAll('input[type="range"], input[type="checkbox"]');
             const preview = document.getElementById('glitched-preview');
             const downloadLink = document.getElementById('download-link');
             const sourceFileInput = document.getElementById('source_file');
@@ -154,6 +184,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Don't re-upload the photo during live glitching
                 formData.delete('photo');
                 
+                // Ensure checkbox is handled correctly if unchecked
+                if (!document.getElementById('invert').checked) {
+                    formData.delete('invert');
+                }
+
                 fetch('index.php', {
                     method: 'POST',
                     body: formData,
@@ -171,17 +206,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 .catch(error => console.error('Error applying glitch:', error));
             };
 
-            sliders.forEach(slider => {
-                slider.addEventListener('input', () => {
-                    // Update value display
-                    const valSpan = document.getElementById('val_' + slider.id);
-                    if (valSpan) {
-                        valSpan.textContent = slider.value;
+            controls.forEach(control => {
+                const eventType = control.type === 'checkbox' ? 'change' : 'input';
+                control.addEventListener(eventType, () => {
+                    if (control.type === 'range') {
+                        // Update value display
+                        const valSpan = document.getElementById('val_' + control.id);
+                        if (valSpan) {
+                            valSpan.textContent = control.value;
+                        }
                     }
 
                     // Debounce to avoid too many requests
                     clearTimeout(timeout);
-                    timeout = setTimeout(applyGlitchLive, 100);
+                    timeout = setTimeout(applyGlitchLive, 150);
                 });
             });
         });
