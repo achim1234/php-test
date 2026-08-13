@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Classes;
 
 use GuzzleHttp\Client;
@@ -8,20 +10,16 @@ use Exception;
 
 class Weather
 {
-    private Client $client;
-    private float $latitude;
-    private float $longitude;
-
     /**
      * @param float $latitude Default is Ravensburg, Germany
      * @param float $longitude Default is Ravensburg, Germany
+     * @param Client $client Optional Guzzle client for testing
      */
-    public function __construct(float $latitude = 47.7833, float $longitude = 9.6167)
-    {
-        $this->client = new Client();
-        $this->latitude = $latitude;
-        $this->longitude = $longitude;
-    }
+    public function __construct(
+        private readonly float $latitude = 47.7833,
+        private readonly float $longitude = 9.6167,
+        private readonly Client $client = new Client(),
+    ) {}
 
     /**
      * Fetches current weather data.
