@@ -21,7 +21,11 @@ class PhotoGlitcher
         int $pixelate = 0,
         int $vJitter = 0
     ): bool {
-        $info = getimagesize($sourcePath);
+        if (!file_exists($sourcePath)) {
+            return false;
+        }
+
+        $info = @getimagesize($sourcePath);
         if ($info === false) {
             return false;
         }

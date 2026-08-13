@@ -28,6 +28,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = "Failed to move uploaded file.";
         }
+    } elseif (isset($_POST['library_image'])) {
+        // Selection from library
+        $libImage = $_POST['library_image'];
+        $libPath = __DIR__ . '/lib/' . $libImage;
+        
+        if (str_contains($libImage, '..') || str_contains($libImage, '/') || str_contains($libImage, '\\')) {
+            $error = "Invalid library image.";
+        } elseif (file_exists($libPath)) {
+            $extension = pathinfo($libPath, PATHINFO_EXTENSION);
+            $filename = uniqid('glitch_lib_', true) . '.' . $extension;
+            $sourcePath = $uploadDir . $filename;
+            if (copy($libPath, $sourcePath)) {
+                $sourceFile = $filename;
+            } else {
+                $error = "Failed to copy library image.";
+            }
+        } else {
+            $error = "Library image not found.";
+        }
     } elseif (isset($_POST['source_file'])) {
         // Re-glitching existing file
         $sourceFile = $_POST['source_file'];
@@ -66,6 +85,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Failed to apply glitch effect.";
         }
     }
+
+    // If it's an AJAX request and we reached here, it means something failed or was invalid
+    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => $error ?: "Invalid request."]);
+        exit;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -78,6 +104,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #121212; color: #eee; }
         .container { max-width: 600px; margin-top: 50px; text-align: center; border: 2px solid #333; padding: 20px; border-radius: 10px; }
         img { max-width: 100%; height: auto; margin-top: 20px; border: 5px solid #444; }
+        .library-section { margin-top: 30px; border-top: 1px solid #333; padding-top: 20px; }
+        .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 15px; }
+        .library-item { cursor: pointer; border: 2px solid transparent; transition: border 0.2s; position: relative; }
+        .library-item:hover { border-color: #ff0055; }
+        .library-item img { margin-top: 0; border: none; width: 100%; height: 80px; object-fit: cover; }
+        
+        /* Lightbox styles */
+        .lightbox { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); align-items: center; justify-content: center; flex-direction: column; }
+        .lightbox-content { max-width: 80%; max-height: 70%; border: 3px solid #eee; }
+        .lightbox-caption { color: #ccc; margin: 15px 0; font-size: 1.2rem; }
+        .lightbox-close { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer; }
+        .lightbox-select { background: #00cc88; color: white; border: none; padding: 10px 25px; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
+        
         form { margin-top: 20px; text-align: left; }
         .control-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
@@ -103,9 +142,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if (isset($sourceFile)): ?>
                 <input type="hidden" name="source_file" id="source_file" value="<?php echo htmlspecialchars($sourceFile); ?>">
             <?php endif; ?>
+            <input type="hidden" name="library_image" id="library_image_input">
+            
             <div class="control-group">
-                <label for="photo">Select Photo:</label>
-                <input type="file" name="photo" id="photo" accept="image/jpeg,image/png" <?php echo isset($sourceFile) ? '' : 'required'; ?>>
+                <label for="photo">Upload Photo:</label>
+                <input type="file" name="photo" id="photo" accept="image/jpeg,image/png" <?php echo isset($sourceFile) ? '' : ''; ?>>
             </div>
 
             <div class="control-group">
@@ -165,9 +206,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <a href="index.php" style="color: #00aaff; text-decoration: none; margin-top: 10px; display: inline-block;">Upload another one</a>
             </div>
         <?php endif; ?>
+
+        <div class="library-section">
+            <h3>Or select from Library:</h3>
+            <div class="library-grid">
+                <?php
+                $libDir = __DIR__ . '/lib/';
+                $images = array_diff(scandir($libDir), array('.', '..', '.gitkeep'));
+                if (empty($images)): ?>
+                    <p style="grid-column: 1/-1; color: #888;">Lib folder is empty. Add images to <code>public/lib/</code>.</p>
+                <?php else: 
+                    foreach ($images as $img):
+                        $ext = strtolower(pathinfo($img, PATHINFO_EXTENSION));
+                        if (in_array($ext, ['jpg', 'jpeg', 'png'])):
+                ?>
+                    <div class="library-item" onclick="openLightbox('lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
+                        <img src="lib/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>">
+                    </div>
+                <?php 
+                        endif;
+                    endforeach; 
+                endif; 
+                ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox">
+        <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+        <img class="lightbox-content" id="lightbox-img">
+        <div id="lightbox-caption" class="lightbox-caption"></div>
+        <button id="select-lib-btn" class="lightbox-select">Use this image</button>
     </div>
 
     <script>
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightbox-img');
+        const lightboxCaption = document.getElementById('lightbox-caption');
+        const libImageInput = document.getElementById('library_image_input');
+        const glitchForm = document.getElementById('glitchForm');
+        let currentLibFile = '';
+
+        function openLightbox(src, filename) {
+            lightboxImg.src = src;
+            lightboxCaption.textContent = filename;
+            currentLibFile = filename;
+            lightbox.style.display = 'flex';
+        }
+
+        function closeLightbox() {
+            lightbox.style.display = 'none';
+        }
+
+        document.getElementById('select-lib-btn').addEventListener('click', () => {
+            libImageInput.value = currentLibFile;
+            // Clear file input to prioritize library selection
+            document.getElementById('photo').value = '';
+            glitchForm.submit();
+        });
+
+        window.onclick = function(event) {
+            if (event.target == lightbox) {
+                closeLightbox();
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('glitchForm');
             const controls = form.querySelectorAll('input[type="range"], input[type="checkbox"]');

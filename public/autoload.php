@@ -1,5 +1,7 @@
 <?php
 #die('in autoload');
+error_reporting(E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED);
+ini_set('display_errors', '0');
 spl_autoload_register(function ($class)
 {
     $prefix = 'Classes\\';
