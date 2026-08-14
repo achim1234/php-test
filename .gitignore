@@ -2,6 +2,9 @@
 vendor/
 composer.phar
 .env
-public/uploads/
-public/lib/
+public/uploads/*
+!public/uploads/.gitkeep
+public/lib/*
 !public/lib/.gitkeep
+public/output/*
+!public/output/.gitkeep
