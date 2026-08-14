@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Classes;
 
+use GdImage;
+
 class PhotoGlitcher
 {
     /**
@@ -31,21 +33,56 @@ class PhotoGlitcher
         }
 
         $mime = $info['mime'];
-        switch ($mime) {
-            case 'image/jpeg':
-                $src = imagecreatefromjpeg($sourcePath);
-                break;
-            case 'image/png':
-                $src = imagecreatefrompng($sourcePath);
-                break;
-            default:
-                return false;
-        }
-
+        $src = $this->createImageFromPath($sourcePath, $mime);
         if (!$src) {
             return false;
         }
 
+        // Pre-processing filters
+        $this->applyFilters($src, $brightness, $contrast, $invert, $pixelate);
+
+        // Core glitch effect
+        $dst = $this->createGlitchedCanvas($src, $rgbShift, $jitter, $vJitter);
+
+        // Post-processing static/scanlines
+        $this->addScanlines($dst, $scanlines, $jitter);
+
+        // Save result
+        $result = $this->saveImage($dst, $destPath, $mime);
+
+        imagedestroy($src);
+        imagedestroy($dst);
+
+        return $result;
+    }
+
+    private function createImageFromPath(string $path, string $mime): ?GdImage
+    {
+        return match ($mime) {
+            'image/jpeg' => imagecreatefromjpeg($path) ?: null,
+            'image/png' => imagecreatefrompng($path) ?: null,
+            default => null,
+        };
+    }
+
+    private function applyFilters(GdImage $image, int $brightness, int $contrast, bool $invert, int $pixelate): void
+    {
+        if ($brightness !== 0 || $contrast !== 0) {
+            imagefilter($image, IMG_FILTER_BRIGHTNESS, $brightness);
+            imagefilter($image, IMG_FILTER_CONTRAST, -$contrast); // GD contrast is inverted
+        }
+
+        if ($invert) {
+            imagefilter($image, IMG_FILTER_NEGATE);
+        }
+
+        if ($pixelate > 1) {
+            imagefilter($image, IMG_FILTER_PIXELATE, $pixelate, true);
+        }
+    }
+
+    private function createGlitchedCanvas(GdImage $src, int $rgbShift, int $jitter, int $vJitter): GdImage
+    {
         $width = imagesx($src);
         $height = imagesy($src);
         $dst = imagecreatetruecolor($width, $height);
@@ -53,25 +90,7 @@ class PhotoGlitcher
         // Fill with black
         imagefill($dst, 0, 0, imagecolorallocate($dst, 0, 0, 0));
 
-        // Brightness / Contrast
-        if ($brightness !== 0 || $contrast !== 0) {
-            imagefilter($src, IMG_FILTER_BRIGHTNESS, $brightness);
-            imagefilter($src, IMG_FILTER_CONTRAST, -$contrast); // GD contrast is inverted
-        }
-
-        // Invert
-        if ($invert) {
-            imagefilter($src, IMG_FILTER_NEGATE);
-        }
-
-        // Pixelate
-        if ($pixelate > 1) {
-            imagefilter($src, IMG_FILTER_PIXELATE, $pixelate, true);
-        }
-
-        // Simple RGB Shift + some scanlines
         $shift = $rgbShift;
-        $vShift = 0;
 
         for ($y = 0; $y < $height; $y++) {
             // Horizontal Jitter
@@ -79,7 +98,7 @@ class PhotoGlitcher
                 $shift = rand(-$jitter, $jitter);
             }
             
-            // Vertical Jitter (randomly shift a row vertically)
+            // Vertical Jitter
             $yOff = 0;
             if ($vJitter > 0 && rand(0, 100) < 5) {
                 $yOff = rand(-$vJitter, $vJitter);
@@ -94,67 +113,67 @@ class PhotoGlitcher
                 $g = ($rgb >> 8) & 0xFF;
                 $b = $rgb & 0xFF;
 
-                // Shift red channel
+                // Red channel shift
                 $xRed = $x + $shift;
                 if ($xRed >= 0 && $xRed < $width) {
-                    $rgbDest = imagecolorat($dst, $xRed, $y);
-                    $rDest = $r;
-                    $gDest = ($rgbDest >> 8) & 0xFF;
-                    $bDest = $rgbDest & 0xFF;
-                    imagesetpixel($dst, $xRed, $y, imagecolorallocate($dst, $rDest, $gDest, $bDest));
+                    $this->setPixelChannel($dst, $xRed, $y, $r, 'r');
                 }
 
-                // Shift blue channel opposite way
+                // Blue channel shift
                 $xBlue = $x - $shift;
                 if ($xBlue >= 0 && $xBlue < $width) {
-                    $rgbDest = imagecolorat($dst, $xBlue, $y);
-                    $rDest = ($rgbDest >> 16) & 0xFF;
-                    $gDest = ($rgbDest >> 8) & 0xFF;
-                    $bDest = $b;
-                    imagesetpixel($dst, $xBlue, $y, imagecolorallocate($dst, $rDest, $gDest, $bDest));
+                    $this->setPixelChannel($dst, $xBlue, $y, $b, 'b');
                 }
                 
-                // Green stays or slightly shifted
+                // Green channel (center/slight shift)
                 if ($x >= 0 && $x < $width) {
-                    $rgbDest = imagecolorat($dst, $x, $y);
-                    $rDest = ($rgbDest >> 16) & 0xFF;
-                    $gDest = $g;
-                    $bDest = ($rgbDest >> 0) & 0xFF; // mixing a bit
-                    imagesetpixel($dst, $x, $y, imagecolorallocate($dst, $rDest, $gDest, $bDest));
+                    $this->setPixelChannel($dst, $x, $y, $g, 'g');
                 }
             }
         }
 
-        // Add some "scanlines" or static
+        return $dst;
+    }
+
+    private function setPixelChannel(GdImage $image, int $x, int $y, int $value, string $channel): void
+    {
+        $rgb = imagecolorat($image, $x, $y);
+        $r = ($rgb >> 16) & 0xFF;
+        $g = ($rgb >> 8) & 0xFF;
+        $b = $rgb & 0xFF;
+
+        match ($channel) {
+            'r' => $r = $value,
+            'g' => $g = $value,
+            'b' => $b = $value,
+        };
+
+        imagesetpixel($image, $x, $y, imagecolorallocate($image, $r, $g, $b));
+    }
+
+    private function addScanlines(GdImage $image, int $scanlines, int $jitter): void
+    {
+        $width = imagesx($image);
+        $height = imagesy($image);
+
         for ($i = 0; $i < $scanlines; $i++) {
             $h = rand(1, 5);
             $y = rand(0, $height - $h);
             $s = rand(-$jitter, $jitter);
-            imagecopy($dst, $dst, $s, $y, 0, $y, $width, $h);
+            imagecopy($image, $image, $s, $y, 0, $y, $width, $h);
         }
+    }
 
-        // Save based on MIME type to preserve quality/format
-        if ($mime === 'image/png') {
-            // For PNG, quality is 0-9 (0 = no compression, 9 = max compression)
-            $result = imagepng($dst, $destPath, 0);
-        } else {
-            // For JPEG, quality is 0-100 (default is ~75)
-            $result = imagejpeg($dst, $destPath, 100);
-        }
-
-        imagedestroy($src);
-        imagedestroy($dst);
-
-        return $result;
+    private function saveImage(GdImage $image, string $path, string $mime): bool
+    {
+        return match ($mime) {
+            'image/png' => imagepng($image, $path, 0),
+            default => imagejpeg($image, $path, 100),
+        };
     }
 
     /**
      * Morphs (blends) multiple images together.
-     *
-     * @param array $sourcePaths Paths to source images
-     * @param string $destPath Path to save the resulting image
-     * @param float $amount Blending amount (not strictly used if multiple images, we'll average them)
-     * @return bool
      */
     public function morphImages(array $sourcePaths, string $destPath): bool
     {
@@ -162,27 +181,40 @@ class PhotoGlitcher
             return false;
         }
 
+        $maxWidth = 0;
+        $maxHeight = 0;
+        $images = $this->loadImagesForMorphing($sourcePaths, $maxWidth, $maxHeight);
+
+        if (count($images) < 2) {
+            $this->destroyImages($images);
+            return false;
+        }
+
+        $dst = imagecreatetruecolor($maxWidth, $maxHeight);
+        imagefill($dst, 0, 0, imagecolorallocate($dst, 0, 0, 0));
+
+        $this->blendImages($dst, $images, $maxWidth, $maxHeight);
+
+        $result = $this->saveImage($dst, $destPath, $this->guessMimeType($destPath));
+
+        $this->destroyImages($images);
+        imagedestroy($dst);
+
+        return $result;
+    }
+
+    private function loadImagesForMorphing(array $paths, int &$maxWidth, int &$maxHeight): array
+    {
         $images = [];
         $maxWidth = 0;
         $maxHeight = 0;
 
-        foreach ($sourcePaths as $path) {
+        foreach ($paths as $path) {
             if (!file_exists($path)) continue;
             $info = @getimagesize($path);
             if ($info === false) continue;
 
-            $mime = $info['mime'];
-            switch ($mime) {
-                case 'image/jpeg':
-                    $img = imagecreatefromjpeg($path);
-                    break;
-                case 'image/png':
-                    $img = imagecreatefrompng($path);
-                    break;
-                default:
-                    continue 2;
-            }
-
+            $img = $this->createImageFromPath($path, $info['mime']);
             if ($img) {
                 $images[] = $img;
                 $maxWidth = max($maxWidth, imagesx($img));
@@ -190,15 +222,11 @@ class PhotoGlitcher
             }
         }
 
-        if (count($images) < 2) {
-            foreach ($images as $img) imagedestroy($img);
-            return false;
-        }
+        return $images;
+    }
 
-        $dst = imagecreatetruecolor($maxWidth, $maxHeight);
-        imagefill($dst, 0, 0, imagecolorallocate($dst, 0, 0, 0));
-
-        // Average all images
+    private function blendImages(GdImage $dst, array $images, int $maxWidth, int $maxHeight): void
+    {
         $count = count($images);
         for ($y = 0; $y < $maxHeight; $y++) {
             for ($x = 0; $x < $maxWidth; $x++) {
@@ -207,7 +235,6 @@ class PhotoGlitcher
                     $w = imagesx($img);
                     $h = imagesy($img);
                     
-                    // Simple scaling: just wrap or clamp if image is smaller
                     $srcX = $x % $w;
                     $srcY = $y % $h;
                     
@@ -224,17 +251,18 @@ class PhotoGlitcher
                 imagesetpixel($dst, $x, $y, imagecolorallocate($dst, $r, $g, $b));
             }
         }
+    }
 
-        $extension = pathinfo($destPath, PATHINFO_EXTENSION);
-        if (strtolower($extension) === 'png') {
-            $result = imagepng($dst, $destPath, 0);
-        } else {
-            $result = imagejpeg($dst, $destPath, 100);
+    private function destroyImages(array $images): void
+    {
+        foreach ($images as $img) {
+            imagedestroy($img);
         }
+    }
 
-        foreach ($images as $img) imagedestroy($img);
-        imagedestroy($dst);
-
-        return $result;
+    private function guessMimeType(string $path): string
+    {
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        return $extension === 'png' ? 'image/png' : 'image/jpeg';
     }
 }

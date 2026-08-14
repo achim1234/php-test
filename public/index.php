@@ -5,185 +5,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/autoload.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Classes\PhotoGlitcher;
+use Classes\GlitchController;
 
-$glitchedImage = null;
-$error = null;
+$controller = new GlitchController();
+$data = $controller->handleRequest();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $uploadDir = __DIR__ . '/uploads/';
-    $libDir = __DIR__ . '/lib/';
-    $outputDir = __DIR__ . '/output/';
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
-    if (!is_dir($libDir)) {
-        mkdir($libDir, 0777, true);
-    }
-    if (!is_dir($outputDir)) {
-        mkdir($outputDir, 0777, true);
-    }
-
-    if (isset($_POST['action']) && $_POST['action'] === 'save_to_output') {
-        $filename = $_POST['filename'] ?? '';
-        if ($filename && !str_contains($filename, '..') && !str_contains($filename, '/') && !str_contains($filename, '\\')) {
-            $sourcePath = $uploadDir . $filename;
-            if (file_exists($sourcePath)) {
-                $pathInfo = pathinfo($filename);
-                $timestamp = date('Ymd_His');
-                $newFilename = $pathInfo['filename'] . '_' . $timestamp . '.' . $pathInfo['extension'];
-                $destPath = $outputDir . $newFilename;
-                if (copy($sourcePath, $destPath)) {
-                    header('Content-Type: application/json');
-                    echo json_encode(['success' => true]);
-                    exit;
-                }
-            }
-        }
-        header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'error' => 'Failed to save to output library.']);
-        exit;
-    }
-
-    if (isset($_POST['action']) && $_POST['action'] === 'morph') {
-        $images = $_POST['images'] ?? [];
-        if (count($images) >= 2) {
-            $sourcePaths = [];
-            foreach ($images as $img) {
-                if (str_contains($img, '..') || str_contains($img, '/') || str_contains($img, '\\')) continue;
-                
-                $path = $libDir . $img;
-                if (!file_exists($path)) {
-                    $path = $outputDir . $img;
-                }
-                
-                if (file_exists($path)) {
-                    $sourcePaths[] = $path;
-                }
-            }
-            
-            if (count($sourcePaths) >= 2) {
-                $extension = pathinfo($sourcePaths[0], PATHINFO_EXTENSION);
-                $destFilename = 'morph_' . uniqid() . '.' . $extension;
-                $destPath = $uploadDir . $destFilename;
-                
-                $glitcher = new PhotoGlitcher();
-                if ($glitcher->morphImages($sourcePaths, $destPath)) {
-                    $glitchedImage = 'uploads/' . $destFilename . '?t=' . time();
-                    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
-                        header('Content-Type: application/json');
-                        echo json_encode(['success' => true, 'glitchedImage' => $glitchedImage]);
-                        exit;
-                    }
-                } else {
-                    $error = "Failed to morph images.";
-                }
-            } else {
-                $error = "At least two valid images are required for morphing.";
-            }
-        } else {
-            $error = "Please select at least two images.";
-        }
-        
-        if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'error' => $error]);
-            exit;
-        }
-    }
-
-    if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
-        // Initial upload - save to library
-        $file = $_FILES['photo'];
-        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $filename = uniqid('upload_', true) . '.' . $extension;
-        $sourcePath = $libDir . $filename;
-        
-        if (move_uploaded_file($file['tmp_name'], $sourcePath)) {
-            $sourceFile = $filename;
-            $isFromLib = true;
-        } else {
-            $error = "Failed to move uploaded file.";
-        }
-    } elseif (!empty($_POST['library_image'])) {
-        // Selection from library
-        $libImage = $_POST['library_image'];
-        $libPath = $libDir . $libImage;
-        
-        if (str_contains($libImage, '..') || str_contains($libImage, '/') || str_contains($libImage, '\\')) {
-            $error = "Invalid library image.";
-        } else {
-            if (!file_exists($libPath)) {
-                $libPath = $outputDir . $libImage;
-            }
-            
-            if (file_exists($libPath)) {
-                $extension = pathinfo($libPath, PATHINFO_EXTENSION);
-                $filename = uniqid('glitch_lib_', true) . '.' . $extension;
-                $sourcePath = $uploadDir . $filename;
-                if (copy($libPath, $sourcePath)) {
-                    $sourceFile = $filename;
-                } else {
-                    $error = "Failed to copy library image.";
-                }
-            } else {
-                $error = "Library image not found.";
-            }
-        }
-    } elseif (!empty($_POST['source_file'])) {
-        // Re-glitching existing file
-        $sourceFile = $_POST['source_file'];
-        // Basic security check: ensure it's just a filename
-        if (str_contains($sourceFile, '..') || str_contains($sourceFile, '/') || str_contains($sourceFile, '\\')) {
-            $error = "Invalid source file.";
-            $sourceFile = null;
-        }
-        
-        // Check if file is in lib or uploads
-        if ($sourceFile && !file_exists($libDir . $sourceFile) && !file_exists($uploadDir . $sourceFile)) {
-            $error = "Source file not found.";
-            $sourceFile = null;
-        }
-        
-        $isFromLib = $sourceFile && file_exists($libDir . $sourceFile);
-    }
-
-    if (isset($sourceFile) && !$error) {
-        $rgbShift = isset($_POST['rgb_shift']) ? (int)$_POST['rgb_shift'] : 10;
-        $jitter = isset($_POST['jitter']) ? (int)$_POST['jitter'] : 20;
-        $scanlines = isset($_POST['scanlines']) ? (int)$_POST['scanlines'] : 10;
-        $brightness = isset($_POST['brightness']) ? (int)$_POST['brightness'] : 0;
-        $contrast = isset($_POST['contrast']) ? (int)$_POST['contrast'] : 0;
-        $invert = isset($_POST['invert']) && $_POST['invert'] === '1';
-        $pixelate = isset($_POST['pixelate']) ? (int)$_POST['pixelate'] : 0;
-        $vJitter = isset($_POST['v_jitter']) ? (int)$_POST['v_jitter'] : 0;
-
-        $sourcePath = ($isFromLib ?? false) ? $libDir . $sourceFile : $uploadDir . $sourceFile;
-        $destFilename = 'glitched_' . $sourceFile;
-        $destPath = $uploadDir . $destFilename;
-
-        $glitcher = new PhotoGlitcher();
-        if ($glitcher->applyGlitch($sourcePath, $destPath, $rgbShift, $jitter, $scanlines, $brightness, $contrast, $invert, $pixelate, $vJitter)) {
-            $glitchedImage = 'uploads/' . $destFilename . '?t=' . time();
-            
-            // If it's an AJAX request, return JSON
-            if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
-                header('Content-Type: application/json');
-                echo json_encode(['success' => true, 'glitchedImage' => $glitchedImage]);
-                exit;
-            }
-        } else {
-            $error = "Failed to apply glitch effect.";
-        }
-    }
-
-    // If it's an AJAX request and we reached here, it means something failed or was invalid
-    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
-        header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'error' => $error ?: "Invalid request."]);
-        exit;
-    }
-}
+$glitchedImage = $data['glitchedImage'];
+$error = $data['error'];
+$sourceFile = $data['sourceFile'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -297,8 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="library-grid" id="output-grid">
                 <?php
-                $outputDir = __DIR__ . '/output/';
-                $outputImages = is_dir($outputDir) ? array_diff(scandir($outputDir), array('.', '..', '.gitkeep')) : [];
+                $outputImages = $controller->getOutputImages();
                 if (empty($outputImages)): ?>
                     <p style="grid-column: 1/-1; color: #888;">Output folder is empty.</p>
                 <?php else: 
@@ -323,8 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h3>Or select from Library:</h3>
             <div class="library-grid">
                 <?php
-                $libDir = __DIR__ . '/lib/';
-                $images = array_diff(scandir($libDir), array('.', '..', '.gitkeep'));
+                $images = $controller->getLibraryImages();
                 if (empty($images)): ?>
                     <p style="grid-column: 1/-1; color: #888;">Lib folder is empty. Add images to <code>public/lib/</code>.</p>
                 <?php else: 
