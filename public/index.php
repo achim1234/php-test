@@ -12,19 +12,24 @@ $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $uploadDir = __DIR__ . '/uploads/';
+    $libDir = __DIR__ . '/lib/';
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
+    if (!is_dir($libDir)) {
+        mkdir($libDir, 0777, true);
+    }
 
     if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
-        // Initial upload
+        // Initial upload - save to library
         $file = $_FILES['photo'];
         $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $filename = uniqid('glitch_', true) . '.' . $extension;
-        $sourcePath = $uploadDir . $filename;
+        $filename = uniqid('upload_', true) . '.' . $extension;
+        $sourcePath = $libDir . $filename;
         
         if (move_uploaded_file($file['tmp_name'], $sourcePath)) {
             $sourceFile = $filename;
+            $isFromLib = true;
         } else {
             $error = "Failed to move uploaded file.";
         }
@@ -50,11 +55,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!empty($_POST['source_file'])) {
         // Re-glitching existing file
         $sourceFile = $_POST['source_file'];
-        // Basic security check: ensure it's just a filename in the uploads dir
+        // Basic security check: ensure it's just a filename
         if (str_contains($sourceFile, '..') || str_contains($sourceFile, '/') || str_contains($sourceFile, '\\')) {
             $error = "Invalid source file.";
             $sourceFile = null;
         }
+        
+        // Check if file is in lib or uploads
+        if ($sourceFile && !file_exists($libDir . $sourceFile) && !file_exists($uploadDir . $sourceFile)) {
+            $error = "Source file not found.";
+            $sourceFile = null;
+        }
+        
+        $isFromLib = $sourceFile && file_exists($libDir . $sourceFile);
     }
 
     if (isset($sourceFile) && !$error) {
@@ -67,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pixelate = isset($_POST['pixelate']) ? (int)$_POST['pixelate'] : 0;
         $vJitter = isset($_POST['v_jitter']) ? (int)$_POST['v_jitter'] : 0;
 
-        $sourcePath = $uploadDir . $sourceFile;
+        $sourcePath = ($isFromLib ?? false) ? $libDir . $sourceFile : $uploadDir . $sourceFile;
         $destFilename = 'glitched_' . $sourceFile;
         $destPath = $uploadDir . $destFilename;
 
