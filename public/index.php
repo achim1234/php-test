@@ -36,9 +36,7 @@ $sourceFile = $data['sourceFile'];
         <div class="main-layout">
             <div class="form-section">
                 <form id="glitchForm" action="index.php" method="post" enctype="multipart/form-data">
-                    <?php if (isset($sourceFile)): ?>
-                        <input type="hidden" name="source_file" id="source_file" value="<?php echo htmlspecialchars($sourceFile); ?>">
-                    <?php endif; ?>
+                    <input type="hidden" name="source_file" id="source_file" value="<?php echo htmlspecialchars($sourceFile ?? ''); ?>">
                     <input type="hidden" name="library_image" id="library_image_input">
                     
                     <div class="control-group">

@@ -60,6 +60,12 @@ function morphSelected() {
             
             preview.src = data.glitchedImage;
             downloadLink.href = data.glitchedImage;
+
+            // Update source_file for live glitching
+            const sourceFileField = document.getElementById('source_file');
+            if (sourceFileField) {
+                sourceFileField.value = data.glitchedImage.split('?')[0].split('/').pop();
+            }
             
             // Show result container and hide placeholder if they exist
             const placeholder = document.getElementById('placeholder');
@@ -160,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let timeout = null;
 
     const applyGlitchLive = () => {
-        if (!sourceFileInput) return;
+        if (!sourceFileInput || !sourceFileInput.value) return;
 
         const formData = new FormData(form);
         // Don't re-upload the photo during live glitching
