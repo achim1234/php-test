@@ -147,4 +147,94 @@ class PhotoGlitcher
 
         return $result;
     }
+
+    /**
+     * Morphs (blends) multiple images together.
+     *
+     * @param array $sourcePaths Paths to source images
+     * @param string $destPath Path to save the resulting image
+     * @param float $amount Blending amount (not strictly used if multiple images, we'll average them)
+     * @return bool
+     */
+    public function morphImages(array $sourcePaths, string $destPath): bool
+    {
+        if (empty($sourcePaths)) {
+            return false;
+        }
+
+        $images = [];
+        $maxWidth = 0;
+        $maxHeight = 0;
+
+        foreach ($sourcePaths as $path) {
+            if (!file_exists($path)) continue;
+            $info = @getimagesize($path);
+            if ($info === false) continue;
+
+            $mime = $info['mime'];
+            switch ($mime) {
+                case 'image/jpeg':
+                    $img = imagecreatefromjpeg($path);
+                    break;
+                case 'image/png':
+                    $img = imagecreatefrompng($path);
+                    break;
+                default:
+                    continue 2;
+            }
+
+            if ($img) {
+                $images[] = $img;
+                $maxWidth = max($maxWidth, imagesx($img));
+                $maxHeight = max($maxHeight, imagesy($img));
+            }
+        }
+
+        if (count($images) < 2) {
+            foreach ($images as $img) imagedestroy($img);
+            return false;
+        }
+
+        $dst = imagecreatetruecolor($maxWidth, $maxHeight);
+        imagefill($dst, 0, 0, imagecolorallocate($dst, 0, 0, 0));
+
+        // Average all images
+        $count = count($images);
+        for ($y = 0; $y < $maxHeight; $y++) {
+            for ($x = 0; $x < $maxWidth; $x++) {
+                $rTotal = $gTotal = $bTotal = 0;
+                foreach ($images as $img) {
+                    $w = imagesx($img);
+                    $h = imagesy($img);
+                    
+                    // Simple scaling: just wrap or clamp if image is smaller
+                    $srcX = $x % $w;
+                    $srcY = $y % $h;
+                    
+                    $rgb = imagecolorat($img, $srcX, $srcY);
+                    $rTotal += ($rgb >> 16) & 0xFF;
+                    $gTotal += ($rgb >> 8) & 0xFF;
+                    $bTotal += $rgb & 0xFF;
+                }
+                
+                $r = (int)($rTotal / $count);
+                $g = (int)($gTotal / $count);
+                $b = (int)($bTotal / $count);
+                
+                imagesetpixel($dst, $x, $y, imagecolorallocate($dst, $r, $g, $b));
+            }
+        }
+
+        $extension = pathinfo($destPath, PATHINFO_EXTENSION);
+        if (strtolower($extension) === 'png') {
+            $result = imagepng($dst, $destPath, 0);
+        } else {
+            $result = imagejpeg($dst, $destPath, 100);
+        }
+
+        foreach ($images as $img) imagedestroy($img);
+        imagedestroy($dst);
+
+        return $result;
+    }
 }

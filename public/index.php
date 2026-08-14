@@ -45,6 +45,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if (isset($_POST['action']) && $_POST['action'] === 'morph') {
+        $images = $_POST['images'] ?? [];
+        if (count($images) >= 2) {
+            $sourcePaths = [];
+            foreach ($images as $img) {
+                if (str_contains($img, '..') || str_contains($img, '/') || str_contains($img, '\\')) continue;
+                
+                $path = $libDir . $img;
+                if (!file_exists($path)) {
+                    $path = $outputDir . $img;
+                }
+                
+                if (file_exists($path)) {
+                    $sourcePaths[] = $path;
+                }
+            }
+            
+            if (count($sourcePaths) >= 2) {
+                $extension = pathinfo($sourcePaths[0], PATHINFO_EXTENSION);
+                $destFilename = 'morph_' . uniqid() . '.' . $extension;
+                $destPath = $uploadDir . $destFilename;
+                
+                $glitcher = new PhotoGlitcher();
+                if ($glitcher->morphImages($sourcePaths, $destPath)) {
+                    $glitchedImage = 'uploads/' . $destFilename . '?t=' . time();
+                    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => true, 'glitchedImage' => $glitchedImage]);
+                        exit;
+                    }
+                } else {
+                    $error = "Failed to morph images.";
+                }
+            } else {
+                $error = "At least two valid images are required for morphing.";
+            }
+        } else {
+            $error = "Please select at least two images.";
+        }
+        
+        if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => $error]);
+            exit;
+        }
+    }
+
     if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
         // Initial upload - save to library
         $file = $_FILES['photo'];
@@ -146,6 +193,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 15px; }
         .library-item { cursor: pointer; border: 2px solid transparent; transition: border 0.2s; position: relative; }
         .library-item:hover { border-color: #ff0055; }
+        .library-item.selected { border-color: #00cc88; }
+        .library-item .select-badge { position: absolute; top: 5px; right: 5px; background: #00cc88; color: white; width: 20px; height: 20px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+        .library-item.selected .select-badge { display: flex; }
         .library-item img { margin-top: 0; border: none; width: 100%; height: 80px; object-fit: cover; }
         
         /* Lightbox styles */
@@ -251,6 +301,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="library-section">
             <h3>Output Library:</h3>
+            <div style="margin-bottom: 10px;">
+                <button type="button" onclick="morphSelected()" style="background: #aa00ff;">Morph Selected Images</button>
+            </div>
             <div class="library-grid" id="output-grid">
                 <?php
                 $outputDir = __DIR__ . '/output/';
@@ -262,8 +315,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $ext = strtolower(pathinfo($img, PATHINFO_EXTENSION));
                         if (in_array($ext, ['jpg', 'jpeg', 'png'])):
                 ?>
-                    <div class="library-item" onclick="openLightbox('output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
+                    <div class="library-item" onclick="toggleSelect(this, 'output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
+                        <div class="select-badge">✓</div>
                         <img src="output/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>">
+                        <div style="font-size: 10px; position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.5); width: 100%;" onclick="event.stopPropagation(); openLightbox('output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">🔍 View</div>
                     </div>
                 <?php 
                         endif;
@@ -286,8 +341,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $ext = strtolower(pathinfo($img, PATHINFO_EXTENSION));
                         if (in_array($ext, ['jpg', 'jpeg', 'png'])):
                 ?>
-                    <div class="library-item" onclick="openLightbox('lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
+                    <div class="library-item" onclick="toggleSelect(this, 'lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
+                        <div class="select-badge">✓</div>
                         <img src="lib/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>">
+                        <div style="font-size: 10px; position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.5); width: 100%;" onclick="event.stopPropagation(); openLightbox('lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">🔍 View</div>
                     </div>
                 <?php 
                         endif;
@@ -319,6 +376,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         let currentLibFile = '';
         let libraryImages = [];
         let currentIndex = -1;
+        let selectedImages = new Set();
+
+        function toggleSelect(element, src, filename) {
+            if (selectedImages.has(filename)) {
+                selectedImages.delete(filename);
+                element.classList.remove('selected');
+            } else {
+                selectedImages.add(filename);
+                element.classList.add('selected');
+            }
+        }
+
+        function morphSelected() {
+            if (selectedImages.size < 2) {
+                alert('Please select at least two images to morph.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'morph');
+            selectedImages.forEach(img => {
+                formData.append('images[]', img);
+            });
+
+            fetch('index.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const resultContainer = document.getElementById('result-container');
+                    if (!resultContainer) {
+                        location.reload(); // If we don't have a result container yet, just reload
+                        return;
+                    }
+                    
+                    const preview = document.getElementById('glitched-preview');
+                    const downloadLink = document.getElementById('download-link');
+                    
+                    preview.src = data.glitchedImage;
+                    downloadLink.href = data.glitchedImage;
+                    
+                    // Clear selection
+                    selectedImages.clear();
+                    document.querySelectorAll('.library-item.selected').forEach(el => el.classList.remove('selected'));
+                    
+                    // Scroll to result
+                    preview.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => console.error('Error morphing:', error));
+        }
 
         // Initialize library images array
         function initLibraryImages() {
