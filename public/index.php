@@ -186,10 +186,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photo Glitch App</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #121212; color: #eee; }
-        .container { max-width: 600px; margin-top: 50px; text-align: center; border: 2px solid #333; padding: 20px; border-radius: 10px; }
-        img { max-width: 100%; height: auto; margin-top: 20px; border: 5px solid #444; }
-        .library-section { margin-top: 30px; border-top: 1px solid #333; padding-top: 20px; }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #121212; color: #eee; margin: 0; padding: 20px; }
+        .container { width: 100%; max-width: 1200px; text-align: center; }
+        .main-layout { display: flex; gap: 30px; align-items: flex-start; margin-top: 30px; flex-wrap: wrap; }
+        .form-section { flex: 1; min-width: 350px; text-align: left; background: #1e1e1e; padding: 20px; border-radius: 10px; border: 1px solid #333; }
+        .result-section { flex: 1.5; min-width: 350px; background: #1e1e1e; padding: 20px; border-radius: 10px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; min-height: 400px; justify-content: center; }
+        img { max-width: 100%; height: auto; border: 5px solid #444; }
+        .library-section { margin-top: 40px; border-top: 1px solid #333; padding-top: 30px; width: 100%; }
         .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 15px; }
         .library-item { cursor: pointer; border: 2px solid transparent; transition: border 0.2s; position: relative; }
         .library-item:hover { border-color: #ff0055; }
@@ -229,75 +232,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p class="error"><?php echo htmlspecialchars($error); ?></p>
         <?php endif; ?>
 
-        <form id="glitchForm" action="index.php" method="post" enctype="multipart/form-data">
-            <?php if (isset($sourceFile)): ?>
-                <input type="hidden" name="source_file" id="source_file" value="<?php echo htmlspecialchars($sourceFile); ?>">
-            <?php endif; ?>
-            <input type="hidden" name="library_image" id="library_image_input">
-            
-            <div class="control-group">
-                <label for="photo">Upload Photo:</label>
-                <input type="file" name="photo" id="photo" accept="image/jpeg,image/png" <?php echo isset($sourceFile) ? '' : ''; ?>>
+        <div class="main-layout">
+            <div class="form-section">
+                <form id="glitchForm" action="index.php" method="post" enctype="multipart/form-data">
+                    <?php if (isset($sourceFile)): ?>
+                        <input type="hidden" name="source_file" id="source_file" value="<?php echo htmlspecialchars($sourceFile); ?>">
+                    <?php endif; ?>
+                    <input type="hidden" name="library_image" id="library_image_input">
+                    
+                    <div class="control-group">
+                        <label for="photo">Upload Photo:</label>
+                        <input type="file" name="photo" id="photo" accept="image/jpeg,image/png">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="rgb_shift">RGB Shift Intensity: <span id="val_rgb_shift">10</span></label>
+                        <input type="range" name="rgb_shift" id="rgb_shift" min="0" max="50" value="10">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="jitter">Horizontal Jitter: <span id="val_jitter">20</span></label>
+                        <input type="range" name="jitter" id="jitter" min="0" max="100" value="20">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="v_jitter">Vertical Jitter: <span id="val_v_jitter">0</span></label>
+                        <input type="range" name="v_jitter" id="v_jitter" min="0" max="100" value="0">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="scanlines">Scanlines / Static: <span id="val_scanlines">10</span></label>
+                        <input type="range" name="scanlines" id="scanlines" min="0" max="50" value="10">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="pixelate">Pixelate: <span id="val_pixelate">0</span></label>
+                        <input type="range" name="pixelate" id="pixelate" min="0" max="20" value="0">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="brightness">Brightness: <span id="val_brightness">0</span></label>
+                        <input type="range" name="brightness" id="brightness" min="-100" max="100" value="0">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="contrast">Contrast: <span id="val_contrast">0</span></label>
+                        <input type="range" name="contrast" id="contrast" min="-100" max="100" value="0">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="invert" style="display: inline;">Invert Colors:</label>
+                        <input type="checkbox" name="invert" id="invert" value="1">
+                    </div>
+                    
+                    <div class="button-group">
+                        <button type="submit">Upload and Glitch!</button>
+                    </div>
+                </form>
             </div>
 
-            <div class="control-group">
-                <label for="rgb_shift">RGB Shift Intensity: <span id="val_rgb_shift">10</span></label>
-                <input type="range" name="rgb_shift" id="rgb_shift" min="0" max="50" value="10">
-            </div>
-
-            <div class="control-group">
-                <label for="jitter">Horizontal Jitter: <span id="val_jitter">20</span></label>
-                <input type="range" name="jitter" id="jitter" min="0" max="100" value="20">
-            </div>
-
-            <div class="control-group">
-                <label for="v_jitter">Vertical Jitter: <span id="val_v_jitter">0</span></label>
-                <input type="range" name="v_jitter" id="v_jitter" min="0" max="100" value="0">
-            </div>
-
-            <div class="control-group">
-                <label for="scanlines">Scanlines / Static: <span id="val_scanlines">10</span></label>
-                <input type="range" name="scanlines" id="scanlines" min="0" max="50" value="10">
-            </div>
-
-            <div class="control-group">
-                <label for="pixelate">Pixelate: <span id="val_pixelate">0</span></label>
-                <input type="range" name="pixelate" id="pixelate" min="0" max="20" value="0">
-            </div>
-
-            <div class="control-group">
-                <label for="brightness">Brightness: <span id="val_brightness">0</span></label>
-                <input type="range" name="brightness" id="brightness" min="-100" max="100" value="0">
-            </div>
-
-            <div class="control-group">
-                <label for="contrast">Contrast: <span id="val_contrast">0</span></label>
-                <input type="range" name="contrast" id="contrast" min="-100" max="100" value="0">
-            </div>
-
-            <div class="control-group">
-                <label for="invert" style="display: inline;">Invert Colors:</label>
-                <input type="checkbox" name="invert" id="invert" value="1">
-            </div>
-            
-            <div class="button-group">
-                <button type="submit">Upload and Glitch!</button>
-            </div>
-        </form>
-
-        <?php if ($glitchedImage): ?>
-            <div id="result-container">
-                <h2>Your Glitched Result:</h2>
-                <img id="glitched-preview" src="<?php echo htmlspecialchars($glitchedImage); ?>" alt="Glitched Photo">
-                <br>
-                <div style="margin-top: 20px;">
-                    <a id="download-link" href="<?php echo htmlspecialchars($glitchedImage); ?>" download class="download-button">Download Glitched Image</a>
-                    <button id="save-output-btn" class="download-button" style="background: #00cc88; margin-left: 10px;">Save in Output Lib</button>
+            <div class="result-section">
+                <div id="result-container" <?php echo !$glitchedImage ? 'style="display: none;"' : ''; ?>>
+                    <h2>Your Glitched Result:</h2>
+                    <img id="glitched-preview" src="<?php echo htmlspecialchars($glitchedImage ?? ''); ?>" alt="Glitched Photo">
+                    <div style="margin-top: 20px;">
+                        <a id="download-link" href="<?php echo htmlspecialchars($glitchedImage ?? ''); ?>" download class="download-button">Download Glitched Image</a>
+                        <button id="save-output-btn" class="download-button" style="background: #00cc88; margin-left: 10px;">Save in Output Lib</button>
+                    </div>
+                    <br>
+                    <a href="index.php" style="color: #00aaff; text-decoration: none; margin-top: 10px; display: inline-block;">Clear / New Upload</a>
                 </div>
-                <br>
-                <a href="index.php" style="color: #00aaff; text-decoration: none; margin-top: 10px; display: inline-block;">Upload another one</a>
+                <?php if (!$glitchedImage): ?>
+                    <div id="placeholder" style="color: #666; text-align: center;">
+                        <p>No image glitched yet.</p>
+                        <p>Upload a photo or select one from the library below.</p>
+                    </div>
+                <?php endif; ?>
             </div>
-        <?php endif; ?>
+        </div>
 
         <div class="library-section">
             <h3>Output Library:</h3>
@@ -421,6 +433,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     preview.src = data.glitchedImage;
                     downloadLink.href = data.glitchedImage;
+                    
+                    // Show result container and hide placeholder if they exist
+                    const placeholder = document.getElementById('placeholder');
+                    if (resultContainer) resultContainer.style.display = 'block';
+                    if (placeholder) placeholder.style.display = 'none';
                     
                     // Clear selection
                     selectedImages.clear();
