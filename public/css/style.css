@@ -1,0 +1,39 @@
+body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #121212; color: #eee; margin: 0; padding: 20px; }
+.container { width: 100%; max-width: 1200px; text-align: center; }
+.main-layout { display: flex; gap: 30px; align-items: flex-start; margin-top: 30px; flex-wrap: wrap; justify-content: center; }
+.form-section { flex: 1; min-width: 350px; text-align: left; background: #1e1e1e; padding: 20px; border-radius: 10px; border: 1px solid #333; }
+.result-section { flex: 1.5; min-width: 350px; background: #1e1e1e; padding: 20px; border-radius: 10px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; min-height: 400px; justify-content: center; }
+img { max-width: 100%; height: auto; border: 5px solid #444; }
+.library-section { margin-top: 40px; border-top: 1px solid #333; padding-top: 30px; width: 100%; }
+.library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 15px; }
+.library-item { cursor: pointer; border: 2px solid transparent; transition: border 0.2s; position: relative; }
+.library-item:hover { border-color: #ff0055; }
+.library-item.selected { border-color: #00cc88; }
+.library-item .select-badge { position: absolute; top: 5px; right: 5px; background: #00cc88; color: white; width: 20px; height: 20px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+.library-item.selected .select-badge { display: flex; }
+.library-item img { margin-top: 0; border: none; width: 100%; height: 80px; object-fit: cover; }
+
+/* Lightbox styles */
+.lightbox { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); align-items: center; justify-content: center; flex-direction: column; }
+.lightbox-content { max-width: 80%; max-height: 70%; border: 3px solid #eee; }
+.lightbox-caption { color: #ccc; margin: 15px 0; font-size: 1.2rem; }
+.lightbox-close { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer; }
+.lightbox-nav { position: absolute; top: 50%; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; pointer-events: none; }
+.lightbox-arrow { color: #fff; font-size: 60px; font-weight: bold; cursor: pointer; pointer-events: auto; user-select: none; padding: 0 20px; }
+.lightbox-arrow:hover { color: #ff0055; }
+.lightbox-select { background: #00cc88; color: white; border: none; padding: 10px 25px; cursor: pointer; font-weight: bold; font-size: 1.1rem; z-index: 1001; }
+
+form { margin-top: 20px; text-align: left; }
+.control-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: bold; }
+input[type="file"] { margin-bottom: 10px; width: 100%; }
+input[type="range"] { width: 100%; }
+.button-group { text-align: center; margin-top: 20px; }
+button { background: #ff0055; color: white; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; }
+button:hover { background: #ff0077; }
+.download-button { background: #0088cc; color: white; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block; }
+.download-button:hover { background: #00aaff; }
+.error { color: #ff5555; margin-top: 10px; }
+.mode-toggle-container { display: flex; justify-content: center; gap: 20px; background: #252525; padding: 15px; border-radius: 10px; margin-top: 30px; border: 1px solid #333; }
+.mode-toggle-container label { cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; margin-bottom: 0; }
+.mode-toggle-container input[type="radio"] { cursor: pointer; width: 18px; height: 18px; accent-color: #ff0055; }
