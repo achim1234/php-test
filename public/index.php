@@ -72,6 +72,27 @@ $sourceFile = $data['sourceFile'];
                     </div>
 
                     <div class="control-group">
+                        <label for="preset_filter">Artistic Filter:</label>
+                        <select name="preset_filter" id="preset_filter">
+                            <option value="none">None</option>
+                            <option value="grayscale">Grayscale</option>
+                            <option value="sepia">Sepia</option>
+                            <option value="vintage">Vintage</option>
+                            <option value="dramatic">Dramatic</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="colorize">Color Tint:</label>
+                        <input type="color" name="colorize" id="colorize" value="#000000">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="color_intensity">Tint Intensity: <span id="val_color_intensity">0</span></label>
+                        <input type="range" name="color_intensity" id="color_intensity" min="0" max="100" value="0">
+                    </div>
+
+                    <div class="control-group">
                         <label for="brightness">Brightness: <span id="val_brightness">0</span></label>
                         <input type="range" name="brightness" id="brightness" min="-100" max="100" value="0">
                     </div>

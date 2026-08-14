@@ -199,13 +199,30 @@ class GlitchController
         $invert = ($_POST['invert'] ?? '') === '1';
         $pixelate = (int)($_POST['pixelate'] ?? 0);
         $vJitter = (int)($_POST['v_jitter'] ?? 0);
+        $presetFilter = $_POST['preset_filter'] ?? 'none';
+        $colorize = $_POST['colorize'] ?? '';
+        $colorIntensity = (int)($_POST['color_intensity'] ?? 0);
 
         $isFromLib = file_exists($this->libDir . $sourceFile);
         $sourcePath = $isFromLib ? $this->libDir . $sourceFile : $this->uploadDir . $sourceFile;
         $destFilename = 'glitched_' . $sourceFile;
         $destPath = $this->uploadDir . $destFilename;
 
-        if ($this->glitcher->applyGlitch($sourcePath, $destPath, $rgbShift, $jitter, $scanlines, $brightness, $contrast, $invert, $pixelate, $vJitter)) {
+        if ($this->glitcher->applyGlitch(
+            $sourcePath,
+            $destPath,
+            $rgbShift,
+            $jitter,
+            $scanlines,
+            $brightness,
+            $contrast,
+            $invert,
+            $pixelate,
+            $vJitter,
+            $presetFilter,
+            $colorize,
+            $colorIntensity
+        )) {
             $glitchedImage = 'uploads/' . $destFilename . '?t=' . time();
         } else {
             $error = "Failed to apply glitch effect.";

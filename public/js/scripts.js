@@ -152,7 +152,7 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('glitchForm');
-    const controls = form.querySelectorAll('input[type="range"], input[type="checkbox"]');
+    const controls = form.querySelectorAll('input[type="range"], input[type="checkbox"], input[type="color"], select');
     const preview = document.getElementById('glitched-preview');
     const downloadLink = document.getElementById('download-link');
     const sourceFileInput = document.getElementById('source_file');

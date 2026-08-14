@@ -145,6 +145,47 @@ input[type="range"]:focus::-webkit-slider-runnable-track {
     background: #444;
 }
 
+/* Select and Color Picker */
+select {
+    width: 100%;
+    background: #1a1a1a;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 10px 15px;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    outline: none;
+    cursor: pointer;
+}
+
+select:focus {
+    border-color: var(--accent-color);
+}
+
+input[type="color"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 35px;
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+    border: none;
+}
+
+input[type="color"]::-moz-color-swatch {
+    border: none;
+}
+
 /* Buttons */
 button, .download-button {
     font-family: var(--font-sans);

@@ -21,7 +21,10 @@ class PhotoGlitcher
         int $contrast = 0,
         bool $invert = false,
         int $pixelate = 0,
-        int $vJitter = 0
+        int $vJitter = 0,
+        string $presetFilter = 'none',
+        string $colorize = '',
+        int $colorIntensity = 0
     ): bool {
         if (!file_exists($sourcePath)) {
             return false;
@@ -39,7 +42,7 @@ class PhotoGlitcher
         }
 
         // Pre-processing filters
-        $this->applyFilters($src, $brightness, $contrast, $invert, $pixelate);
+        $this->applyFilters($src, $brightness, $contrast, $invert, $pixelate, $presetFilter, $colorize, $colorIntensity);
 
         // Core glitch effect
         $dst = $this->createGlitchedCanvas($src, $rgbShift, $jitter, $vJitter);
@@ -65,8 +68,16 @@ class PhotoGlitcher
         };
     }
 
-    private function applyFilters(GdImage $image, int $brightness, int $contrast, bool $invert, int $pixelate): void
-    {
+    private function applyFilters(
+        GdImage $image,
+        int $brightness,
+        int $contrast,
+        bool $invert,
+        int $pixelate,
+        string $presetFilter = 'none',
+        string $colorize = '',
+        int $colorIntensity = 0
+    ): void {
         if ($brightness !== 0 || $contrast !== 0) {
             imagefilter($image, IMG_FILTER_BRIGHTNESS, $brightness);
             imagefilter($image, IMG_FILTER_CONTRAST, -$contrast); // GD contrast is inverted
@@ -79,6 +90,62 @@ class PhotoGlitcher
         if ($pixelate > 1) {
             imagefilter($image, IMG_FILTER_PIXELATE, $pixelate, true);
         }
+
+        match ($presetFilter) {
+            'grayscale' => imagefilter($image, IMG_FILTER_GRAYSCALE),
+            'sepia' => $this->applySepia($image),
+            'dramatic' => $this->applyDramatic($image),
+            'vintage' => $this->applyVintage($image),
+            default => null,
+        };
+
+        if ($colorize !== '' && $colorIntensity > 0) {
+            $rgb = $this->hexToRgb($colorize);
+            if ($rgb) {
+                // GD colorize: alpha 0-127. 
+                // 0 indicates completely opaque while 127 indicates completely transparent.
+                // intensity 0 (none) -> alpha 127
+                // intensity 100 (full) -> alpha 0
+                $alpha = 127 - (int)($colorIntensity * 1.27);
+                imagefilter($image, IMG_FILTER_COLORIZE, $rgb['r'], $rgb['g'], $rgb['b'], $alpha);
+            }
+        }
+    }
+
+    private function applySepia(GdImage $image): void
+    {
+        imagefilter($image, IMG_FILTER_GRAYSCALE);
+        imagefilter($image, IMG_FILTER_COLORIZE, 90, 60, 40);
+    }
+
+    private function applyDramatic(GdImage $image): void
+    {
+        imagefilter($image, IMG_FILTER_CONTRAST, -20);
+        imagefilter($image, IMG_FILTER_BRIGHTNESS, -10);
+        imagefilter($image, IMG_FILTER_COLORIZE, 0, 0, 20, 30);
+    }
+
+    private function applyVintage(GdImage $image): void
+    {
+        imagefilter($image, IMG_FILTER_COLORIZE, 20, 20, 0, 20);
+        imagefilter($image, IMG_FILTER_CONTRAST, -10);
+    }
+
+    private function hexToRgb(string $hex): ?array
+    {
+        $hex = str_replace('#', '', $hex);
+        if (strlen($hex) === 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+        } elseif (strlen($hex) === 6) {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        } else {
+            return null;
+        }
+        return ['r' => $r, 'g' => $g, 'b' => $b];
     }
 
     private function createGlitchedCanvas(GdImage $src, int $rgbShift, int $jitter, int $vJitter): GdImage
