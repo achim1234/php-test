@@ -222,6 +222,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .download-button { background: #0088cc; color: white; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block; }
         .download-button:hover { background: #00aaff; }
         .error { color: #ff5555; margin-top: 10px; }
+        .mode-toggle-container { display: flex; justify-content: center; gap: 20px; background: #252525; padding: 15px; border-radius: 10px; margin-top: 30px; border: 1px solid #333; }
+        .mode-toggle-container label { cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; margin-bottom: 0; }
+        .mode-toggle-container input[type="radio"] { cursor: pointer; width: 18px; height: 18px; accent-color: #ff0055; }
     </style>
 </head>
 <body>
@@ -311,6 +314,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
 
+        <div class="mode-toggle-container">
+            <span style="font-weight: bold; color: #ff0055;">Interaction Mode:</span>
+            <label>
+                <input type="radio" name="interaction-mode" value="view" checked> 🔍 View (Lightbox)
+            </label>
+            <label>
+                <input type="radio" name="interaction-mode" value="select"> ✅ Select (Morph)
+            </label>
+        </div>
+
         <div class="library-section">
             <h3>Output Library:</h3>
             <div style="margin-bottom: 10px;">
@@ -327,7 +340,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $ext = strtolower(pathinfo($img, PATHINFO_EXTENSION));
                         if (in_array($ext, ['jpg', 'jpeg', 'png'])):
                 ?>
-                    <div class="library-item" onclick="toggleSelect(this, 'output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
+                    <div class="library-item" onclick="handleItemClick(this, 'output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
                         <div class="select-badge">✓</div>
                         <img src="output/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>">
                         <div style="font-size: 10px; position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.5); width: 100%;" onclick="event.stopPropagation(); openLightbox('output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">🔍 View</div>
@@ -353,7 +366,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $ext = strtolower(pathinfo($img, PATHINFO_EXTENSION));
                         if (in_array($ext, ['jpg', 'jpeg', 'png'])):
                 ?>
-                    <div class="library-item" onclick="toggleSelect(this, 'lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
+                    <div class="library-item" onclick="handleItemClick(this, 'lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
                         <div class="select-badge">✓</div>
                         <img src="lib/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>">
                         <div style="font-size: 10px; position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.5); width: 100%;" onclick="event.stopPropagation(); openLightbox('lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">🔍 View</div>
@@ -389,6 +402,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         let libraryImages = [];
         let currentIndex = -1;
         let selectedImages = new Set();
+
+        function handleItemClick(element, src, filename) {
+            const mode = document.querySelector('input[name="interaction-mode"]:checked').value;
+            if (mode === 'select') {
+                toggleSelect(element, src, filename);
+            } else {
+                openLightbox(src, filename);
+            }
+        }
 
         function toggleSelect(element, src, filename) {
             if (selectedImages.has(filename)) {
