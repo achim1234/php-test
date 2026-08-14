@@ -20,6 +20,9 @@ $sourceFile = $data['sourceFile'];
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photo Glitch App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -93,36 +96,35 @@ $sourceFile = $data['sourceFile'];
                 <div id="result-container" <?php echo !$glitchedImage ? 'style="display: none;"' : ''; ?>>
                     <h2>Your Glitched Result:</h2>
                     <img id="glitched-preview" src="<?php echo htmlspecialchars($glitchedImage ?? ''); ?>" alt="Glitched Photo">
-                    <div style="margin-top: 20px;">
-                        <a id="download-link" href="<?php echo htmlspecialchars($glitchedImage ?? ''); ?>" download class="download-button">Download Glitched Image</a>
-                        <button id="save-output-btn" class="download-button" style="background: #00cc88; margin-left: 10px;">Save in Output Lib</button>
+                    <div class="action-buttons">
+                        <a id="download-link" href="<?php echo htmlspecialchars($glitchedImage ?? ''); ?>" download class="download-button">Download Result</a>
+                        <button id="save-output-btn" class="download-button">Save to Collection</button>
                     </div>
                     <br>
-                    <a href="index.php" style="color: #00aaff; text-decoration: none; margin-top: 10px; display: inline-block;">Clear / New Upload</a>
+                    <a href="index.php" class="clear-link">Start Fresh</a>
                 </div>
                 <?php if (!$glitchedImage): ?>
-                    <div id="placeholder" style="color: #666; text-align: center;">
-                        <p>No image glitched yet.</p>
-                        <p>Upload a photo or select one from the library below.</p>
+                    <div id="placeholder">
+                        <p>Select or upload an artifact to begin.</p>
                     </div>
                 <?php endif; ?>
             </div>
         </div>
 
         <div class="mode-toggle-container">
-            <span style="font-weight: bold; color: #ff0055;">Interaction Mode:</span>
+            <span>Interaction Mode</span>
             <label>
-                <input type="radio" name="interaction-mode" value="view" checked> 🔍 View (Lightbox)
+                <input type="radio" name="interaction-mode" value="view" checked> Curate
             </label>
             <label>
-                <input type="radio" name="interaction-mode" value="select"> ✅ Select (Morph)
+                <input type="radio" name="interaction-mode" value="select"> Composite
             </label>
         </div>
 
         <div class="library-section">
             <h3>Output Library:</h3>
-            <div style="margin-bottom: 10px;">
-                <button type="button" onclick="morphSelected()" style="background: #aa00ff;">Morph Selected Images</button>
+            <div style="margin-bottom: 20px;">
+                <button type="button" onclick="morphSelected()">Morph Selected</button>
             </div>
             <div class="library-grid" id="output-grid">
                 <?php
@@ -137,7 +139,7 @@ $sourceFile = $data['sourceFile'];
                     <div class="library-item" onclick="handleItemClick(this, 'output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
                         <div class="select-badge">✓</div>
                         <img src="output/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>">
-                        <div style="font-size: 10px; position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.5); width: 100%;" onclick="event.stopPropagation(); openLightbox('output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">🔍 View</div>
+                        <div class="view-overlay" onclick="event.stopPropagation(); openLightbox('output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">Inspect</div>
                     </div>
                 <?php 
                         endif;
@@ -162,7 +164,7 @@ $sourceFile = $data['sourceFile'];
                     <div class="library-item" onclick="handleItemClick(this, 'lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
                         <div class="select-badge">✓</div>
                         <img src="lib/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>">
-                        <div style="font-size: 10px; position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.5); width: 100%;" onclick="event.stopPropagation(); openLightbox('lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">🔍 View</div>
+                        <div class="view-overlay" onclick="event.stopPropagation(); openLightbox('lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">Inspect</div>
                     </div>
                 <?php 
                         endif;
