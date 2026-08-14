@@ -115,7 +115,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .lightbox-content { max-width: 80%; max-height: 70%; border: 3px solid #eee; }
         .lightbox-caption { color: #ccc; margin: 15px 0; font-size: 1.2rem; }
         .lightbox-close { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer; }
-        .lightbox-select { background: #00cc88; color: white; border: none; padding: 10px 25px; cursor: pointer; font-weight: bold; font-size: 1.1rem; }
+        .lightbox-nav { position: absolute; top: 50%; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; pointer-events: none; }
+        .lightbox-arrow { color: #fff; font-size: 60px; font-weight: bold; cursor: pointer; pointer-events: auto; user-select: none; padding: 0 20px; }
+        .lightbox-arrow:hover { color: #ff0055; }
+        .lightbox-select { background: #00cc88; color: white; border: none; padding: 10px 25px; cursor: pointer; font-weight: bold; font-size: 1.1rem; z-index: 1001; }
         
         form { margin-top: 20px; text-align: left; }
         .control-group { margin-bottom: 15px; }
@@ -235,6 +238,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Lightbox -->
     <div id="lightbox" class="lightbox">
         <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+        <div class="lightbox-nav">
+            <span class="lightbox-arrow" onclick="prevImage()">&#10094;</span>
+            <span class="lightbox-arrow" onclick="nextImage()">&#10095;</span>
+        </div>
         <img class="lightbox-content" id="lightbox-img">
         <div id="lightbox-caption" class="lightbox-caption"></div>
         <button id="select-lib-btn" class="lightbox-select">Use this image</button>
@@ -247,12 +254,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const libImageInput = document.getElementById('library_image_input');
         const glitchForm = document.getElementById('glitchForm');
         let currentLibFile = '';
+        let libraryImages = [];
+        let currentIndex = -1;
+
+        // Initialize library images array
+        document.addEventListener('DOMContentLoaded', () => {
+            const items = document.querySelectorAll('.library-item img');
+            items.forEach((img, index) => {
+                libraryImages.push({
+                    src: img.getAttribute('src'),
+                    filename: img.getAttribute('alt')
+                });
+            });
+        });
 
         function openLightbox(src, filename) {
-            lightboxImg.src = src;
-            lightboxCaption.textContent = filename;
-            currentLibFile = filename;
+            currentIndex = libraryImages.findIndex(img => img.filename === filename);
+            updateLightbox();
             lightbox.style.display = 'flex';
+        }
+
+        function updateLightbox() {
+            if (currentIndex >= 0 && currentIndex < libraryImages.length) {
+                const img = libraryImages[currentIndex];
+                lightboxImg.src = img.src;
+                lightboxCaption.textContent = img.filename;
+                currentLibFile = img.filename;
+            }
+        }
+
+        function nextImage() {
+            if (libraryImages.length === 0) return;
+            currentIndex = (currentIndex + 1) % libraryImages.length;
+            updateLightbox();
+        }
+
+        function prevImage() {
+            if (libraryImages.length === 0) return;
+            currentIndex = (currentIndex - 1 + libraryImages.length) % libraryImages.length;
+            updateLightbox();
         }
 
         function closeLightbox() {
@@ -271,6 +311,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 closeLightbox();
             }
         }
+
+        document.addEventListener('keydown', (e) => {
+            if (lightbox.style.display === 'flex') {
+                if (e.key === 'ArrowRight') nextImage();
+                if (e.key === 'ArrowLeft') prevImage();
+                if (e.key === 'Escape') closeLightbox();
+            }
+        });
 
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('glitchForm');
