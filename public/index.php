@@ -13,11 +13,36 @@ $error = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $uploadDir = __DIR__ . '/uploads/';
     $libDir = __DIR__ . '/lib/';
+    $outputDir = __DIR__ . '/output/';
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
     if (!is_dir($libDir)) {
         mkdir($libDir, 0777, true);
+    }
+    if (!is_dir($outputDir)) {
+        mkdir($outputDir, 0777, true);
+    }
+
+    if (isset($_POST['action']) && $_POST['action'] === 'save_to_output') {
+        $filename = $_POST['filename'] ?? '';
+        if ($filename && !str_contains($filename, '..') && !str_contains($filename, '/') && !str_contains($filename, '\\')) {
+            $sourcePath = $uploadDir . $filename;
+            if (file_exists($sourcePath)) {
+                $pathInfo = pathinfo($filename);
+                $timestamp = date('Ymd_His');
+                $newFilename = $pathInfo['filename'] . '_' . $timestamp . '.' . $pathInfo['extension'];
+                $destPath = $outputDir . $newFilename;
+                if (copy($sourcePath, $destPath)) {
+                    header('Content-Type: application/json');
+                    echo json_encode(['success' => true]);
+                    exit;
+                }
+            }
+        }
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Failed to save to output library.']);
+        exit;
     }
 
     if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
@@ -217,11 +242,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <br>
                 <div style="margin-top: 20px;">
                     <a id="download-link" href="<?php echo htmlspecialchars($glitchedImage); ?>" download class="download-button">Download Glitched Image</a>
+                    <button id="save-output-btn" class="download-button" style="background: #00cc88; margin-left: 10px;">Save in Output Lib</button>
                 </div>
                 <br>
                 <a href="index.php" style="color: #00aaff; text-decoration: none; margin-top: 10px; display: inline-block;">Upload another one</a>
             </div>
         <?php endif; ?>
+
+        <div class="library-section">
+            <h3>Output Library:</h3>
+            <div class="library-grid" id="output-grid">
+                <?php
+                $outputDir = __DIR__ . '/output/';
+                $outputImages = is_dir($outputDir) ? array_diff(scandir($outputDir), array('.', '..', '.gitkeep')) : [];
+                if (empty($outputImages)): ?>
+                    <p style="grid-column: 1/-1; color: #888;">Output folder is empty.</p>
+                <?php else: 
+                    foreach ($outputImages as $img):
+                        $ext = strtolower(pathinfo($img, PATHINFO_EXTENSION));
+                        if (in_array($ext, ['jpg', 'jpeg', 'png'])):
+                ?>
+                    <div class="library-item" onclick="openLightbox('output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
+                        <img src="output/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>">
+                    </div>
+                <?php 
+                        endif;
+                    endforeach; 
+                endif; 
+                ?>
+            </div>
+        </div>
 
         <div class="library-section">
             <h3>Or select from Library:</h3>
@@ -271,7 +321,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         let currentIndex = -1;
 
         // Initialize library images array
-        document.addEventListener('DOMContentLoaded', () => {
+        function initLibraryImages() {
+            libraryImages = [];
             const items = document.querySelectorAll('.library-item img');
             items.forEach((img, index) => {
                 libraryImages.push({
@@ -279,6 +330,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     filename: img.getAttribute('alt')
                 });
             });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initLibraryImages();
         });
 
         function openLightbox(src, filename) {
@@ -387,6 +442,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     timeout = setTimeout(applyGlitchLive, 150);
                 });
             });
+
+            const saveOutputBtn = document.getElementById('save-output-btn');
+            if (saveOutputBtn) {
+                saveOutputBtn.addEventListener('click', () => {
+                    const preview = document.getElementById('glitched-preview');
+                    const url = new URL(preview.src);
+                    const filename = url.pathname.split('/').pop();
+                    
+                    const formData = new FormData();
+                    formData.append('action', 'save_to_output');
+                    formData.append('filename', filename);
+
+                    fetch('index.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Saved to Output Library!');
+                            location.reload(); // Reload to show the new image in the grid
+                        } else {
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(error => console.error('Error saving to output:', error));
+                });
+            }
         });
     </script>
 </body>
