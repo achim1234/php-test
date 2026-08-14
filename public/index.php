@@ -108,21 +108,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!empty($_POST['library_image'])) {
         // Selection from library
         $libImage = $_POST['library_image'];
-        $libPath = __DIR__ . '/lib/' . $libImage;
+        $libPath = $libDir . $libImage;
         
         if (str_contains($libImage, '..') || str_contains($libImage, '/') || str_contains($libImage, '\\')) {
             $error = "Invalid library image.";
-        } elseif (file_exists($libPath)) {
-            $extension = pathinfo($libPath, PATHINFO_EXTENSION);
-            $filename = uniqid('glitch_lib_', true) . '.' . $extension;
-            $sourcePath = $uploadDir . $filename;
-            if (copy($libPath, $sourcePath)) {
-                $sourceFile = $filename;
-            } else {
-                $error = "Failed to copy library image.";
-            }
         } else {
-            $error = "Library image not found.";
+            if (!file_exists($libPath)) {
+                $libPath = $outputDir . $libImage;
+            }
+            
+            if (file_exists($libPath)) {
+                $extension = pathinfo($libPath, PATHINFO_EXTENSION);
+                $filename = uniqid('glitch_lib_', true) . '.' . $extension;
+                $sourcePath = $uploadDir . $filename;
+                if (copy($libPath, $sourcePath)) {
+                    $sourceFile = $filename;
+                } else {
+                    $error = "Failed to copy library image.";
+                }
+            } else {
+                $error = "Library image not found.";
+            }
         }
     } elseif (!empty($_POST['source_file'])) {
         // Re-glitching existing file
@@ -491,7 +497,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         });
 
         function openLightbox(src, filename) {
-            currentIndex = libraryImages.findIndex(img => img.filename === filename);
+            currentIndex = libraryImages.findIndex(img => img.src === src);
             updateLightbox();
             lightbox.style.display = 'flex';
         }
