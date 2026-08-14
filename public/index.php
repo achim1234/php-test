@@ -188,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <style>
         body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #121212; color: #eee; margin: 0; padding: 20px; }
         .container { width: 100%; max-width: 1200px; text-align: center; }
-        .main-layout { display: flex; gap: 30px; align-items: flex-start; margin-top: 30px; flex-wrap: wrap; }
+        .main-layout { display: flex; gap: 30px; align-items: flex-start; margin-top: 30px; flex-wrap: wrap; justify-content: center; }
         .form-section { flex: 1; min-width: 350px; text-align: left; background: #1e1e1e; padding: 20px; border-radius: 10px; border: 1px solid #333; }
         .result-section { flex: 1.5; min-width: 350px; background: #1e1e1e; padding: 20px; border-radius: 10px; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; min-height: 400px; justify-content: center; }
         img { max-width: 100%; height: auto; border: 5px solid #444; }
