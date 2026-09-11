@@ -30,7 +30,7 @@ class PhotoGlitcher
             return false;
         }
 
-        $info = @getimagesize($sourcePath);
+        $info = getimagesize($sourcePath);
         if ($info === false) {
             return false;
         }
@@ -61,11 +61,17 @@ class PhotoGlitcher
 
     private function createImageFromPath(string $path, string $mime): ?GdImage
     {
-        return match ($mime) {
+        $image = match ($mime) {
             'image/jpeg' => imagecreatefromjpeg($path) ?: null,
             'image/png' => imagecreatefrompng($path) ?: null,
             default => null,
         };
+
+        if ($image !== null && !imageistruecolor($image)) {
+            imagepalettetotruecolor($image);
+        }
+
+        return $image;
     }
 
     private function applyFilters(
@@ -154,8 +160,13 @@ class PhotoGlitcher
         $height = imagesy($src);
         $dst = imagecreatetruecolor($width, $height);
 
-        // Fill with black
-        imagefill($dst, 0, 0, imagecolorallocate($dst, 0, 0, 0));
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+
+        if ($rgbShift === 0 && $jitter === 0 && $vJitter === 0) {
+            imagecopy($dst, $src, 0, 0, 0, 0, $width, $height);
+            return $dst;
+        }
 
         $shift = $rgbShift;
 
@@ -171,51 +182,31 @@ class PhotoGlitcher
                 $yOff = rand(-$vJitter, $vJitter);
             }
 
+            $srcY = $y + $yOff;
+            if ($srcY < 0 || $srcY >= $height) $srcY = $y;
+
+            if ($shift === 0) {
+                imagecopy($dst, $src, 0, $y, 0, $srcY, $width, 1);
+                continue;
+            }
+
+            // Gather the channels once per destination pixel, avoiding three
+            // read/modify/write cycles and color allocations for every pixel.
             for ($x = 0; $x < $width; $x++) {
-                $srcY = $y + $yOff;
-                if ($srcY < 0 || $srcY >= $height) $srcY = $y;
-
-                $rgb = imagecolorat($src, $x, $srcY);
-                $r = ($rgb >> 16) & 0xFF;
-                $g = ($rgb >> 8) & 0xFF;
-                $b = $rgb & 0xFF;
-
-                // Red channel shift
-                $xRed = $x + $shift;
+                $rgb = imagecolorat($src, $x, $srcY) & 0x7F00FF00;
+                $xRed = $x - $shift;
+                $xBlue = $x + $shift;
                 if ($xRed >= 0 && $xRed < $width) {
-                    $this->setPixelChannel($dst, $xRed, $y, $r, 'r');
+                    $rgb |= imagecolorat($src, $xRed, $srcY) & 0xFF0000;
                 }
-
-                // Blue channel shift
-                $xBlue = $x - $shift;
                 if ($xBlue >= 0 && $xBlue < $width) {
-                    $this->setPixelChannel($dst, $xBlue, $y, $b, 'b');
+                    $rgb |= imagecolorat($src, $xBlue, $srcY) & 0xFF;
                 }
-                
-                // Green channel (center/slight shift)
-                if ($x >= 0 && $x < $width) {
-                    $this->setPixelChannel($dst, $x, $y, $g, 'g');
-                }
+                imagesetpixel($dst, $x, $y, $rgb);
             }
         }
 
         return $dst;
-    }
-
-    private function setPixelChannel(GdImage $image, int $x, int $y, int $value, string $channel): void
-    {
-        $rgb = imagecolorat($image, $x, $y);
-        $r = ($rgb >> 16) & 0xFF;
-        $g = ($rgb >> 8) & 0xFF;
-        $b = $rgb & 0xFF;
-
-        match ($channel) {
-            'r' => $r = $value,
-            'g' => $g = $value,
-            'b' => $b = $value,
-        };
-
-        imagesetpixel($image, $x, $y, imagecolorallocate($image, $r, $g, $b));
     }
 
     private function addScanlines(GdImage $image, int $scanlines, int $jitter): void
@@ -224,7 +215,7 @@ class PhotoGlitcher
         $height = imagesy($image);
 
         for ($i = 0; $i < $scanlines; $i++) {
-            $h = rand(1, 5);
+            $h = rand(1, min(5, $height));
             $y = rand(0, $height - $h);
             $s = rand(-$jitter, $jitter);
             imagecopy($image, $image, $s, $y, 0, $y, $width, $h);
@@ -234,7 +225,7 @@ class PhotoGlitcher
     private function saveImage(GdImage $image, string $path, string $mime): bool
     {
         return match ($mime) {
-            'image/png' => imagepng($image, $path, 0),
+            'image/png' => imagepng($image, $path, 6),
             default => imagejpeg($image, $path, 100),
         };
     }
@@ -278,7 +269,7 @@ class PhotoGlitcher
 
         foreach ($paths as $path) {
             if (!file_exists($path)) continue;
-            $info = @getimagesize($path);
+            $info = getimagesize($path);
             if ($info === false) continue;
 
             $img = $this->createImageFromPath($path, $info['mime']);
@@ -295,15 +286,14 @@ class PhotoGlitcher
     private function blendImages(GdImage $dst, array $images, int $maxWidth, int $maxHeight): void
     {
         $count = count($images);
+        $widths = array_map(imagesx(...), $images);
+        $heights = array_map(imagesy(...), $images);
         for ($y = 0; $y < $maxHeight; $y++) {
             for ($x = 0; $x < $maxWidth; $x++) {
                 $rTotal = $gTotal = $bTotal = 0;
-                foreach ($images as $img) {
-                    $w = imagesx($img);
-                    $h = imagesy($img);
-                    
-                    $srcX = $x % $w;
-                    $srcY = $y % $h;
+                foreach ($images as $index => $img) {
+                    $srcX = $x % $widths[$index];
+                    $srcY = $y % $heights[$index];
                     
                     $rgb = imagecolorat($img, $srcX, $srcY);
                     $rTotal += ($rgb >> 16) & 0xFF;
@@ -315,7 +305,7 @@ class PhotoGlitcher
                 $g = (int)($gTotal / $count);
                 $b = (int)($bTotal / $count);
                 
-                imagesetpixel($dst, $x, $y, imagecolorallocate($dst, $r, $g, $b));
+                imagesetpixel($dst, $x, $y, ($r << 16) | ($g << 8) | $b);
             }
         }
     }

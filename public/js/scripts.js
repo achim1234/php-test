@@ -18,71 +18,17 @@ function handleItemClick(element, src, filename) {
 }
 
 function toggleSelect(element, src, filename) {
-    if (selectedImages.has(filename)) {
-        selectedImages.delete(filename);
+    if (selectedImages.has(src)) {
+        selectedImages.delete(src);
         element.classList.remove('selected');
     } else {
-        selectedImages.add(filename);
+        selectedImages.add(src);
         element.classList.add('selected');
     }
 }
 
 function morphSelected() {
-    if (selectedImages.size < 2) {
-        alert('Please select at least two images to morph.');
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('action', 'morph');
-    selectedImages.forEach(img => {
-        formData.append('images[]', img);
-    });
-
-    fetch('index.php', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const resultContainer = document.getElementById('result-container');
-            if (!resultContainer) {
-                location.reload(); // If we don't have a result container yet, just reload
-                return;
-            }
-            
-            const preview = document.getElementById('glitched-preview');
-            const downloadLink = document.getElementById('download-link');
-            
-            preview.src = data.glitchedImage;
-            downloadLink.href = data.glitchedImage;
-
-            // Update source_file for live glitching
-            const sourceFileField = document.getElementById('source_file');
-            if (sourceFileField) {
-                sourceFileField.value = data.glitchedImage.split('?')[0].split('/').pop();
-            }
-            
-            // Show result container and hide placeholder if they exist
-            const placeholder = document.getElementById('placeholder');
-            if (resultContainer) resultContainer.style.display = 'block';
-            if (placeholder) placeholder.style.display = 'none';
-            
-            // Clear selection
-            selectedImages.clear();
-            document.querySelectorAll('.library-item.selected').forEach(el => el.classList.remove('selected'));
-            
-            // Scroll to result
-            preview.scrollIntoView({ behavior: 'smooth' });
-        } else {
-            alert('Error: ' + data.error);
-        }
-    })
-    .catch(error => console.error('Error morphing:', error));
+    glitchForm.dispatchEvent(new Event('morph'));
 }
 
 // Initialize library images array
@@ -112,7 +58,7 @@ function updateLightbox() {
         const img = libraryImages[currentIndex];
         lightboxImg.src = img.src;
         lightboxCaption.textContent = img.filename;
-        currentLibFile = img.filename;
+        currentLibFile = img.src;
     }
 }
 
@@ -138,7 +84,8 @@ if (selectLibBtn) {
         libImageInput.value = currentLibFile;
         // Clear file input to prioritize library selection
         document.getElementById('photo').value = '';
-        glitchForm.submit();
+        closeLightbox();
+        glitchForm.requestSubmit();
     });
 }
 
@@ -157,88 +104,241 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('glitchForm');
-    const controls = form.querySelectorAll('input[type="range"], input[type="checkbox"], input[type="color"], select');
+    const controls = glitchForm.querySelectorAll('input[type="range"], input[type="checkbox"], input[type="color"], select');
     const preview = document.getElementById('glitched-preview');
     const downloadLink = document.getElementById('download-link');
     const sourceFileInput = document.getElementById('source_file');
-
+    const photoInput = document.getElementById('photo');
+    const submitButton = glitchForm.querySelector('button[type="submit"]');
+    const saveButton = document.getElementById('save-output-btn');
+    const morphButton = document.getElementById('morph-btn');
+    const status = document.getElementById('editor-status');
+    let active = false;
+    let pendingRender = false;
     let timeout = null;
+    let revision = 0;
+    let resultCurrent = Boolean(preview.getAttribute('src'));
 
-    const applyGlitchLive = () => {
-        if (!sourceFileInput || !sourceFileInput.value) return;
+    function showStatus(message, error = false) {
+        status.textContent = message;
+        status.classList.toggle('error', error);
+    }
 
-        const formData = new FormData(form);
-        // Don't re-upload the photo during live glitching
-        formData.delete('photo');
-        
-        // Ensure checkbox is handled correctly if unchecked
-        if (!document.getElementById('invert').checked) {
-            formData.delete('invert');
-        }
+    function updateBusyState() {
+        const busy = active || pendingRender;
+        photoInput.disabled = busy;
+        submitButton.disabled = busy;
+        selectLibBtn.disabled = busy;
+        morphButton.disabled = busy;
+        saveButton.disabled = busy || !resultCurrent;
+        downloadLink.setAttribute('aria-disabled', String(busy || !resultCurrent));
+        document.getElementById('result-container').setAttribute('aria-busy', String(busy));
+        submitButton.textContent = photoInput.files.length || !sourceFileInput.value ? 'Upload and Glitch!' : 'Apply Effects';
+    }
 
-        fetch('index.php', {
+    async function post(formData) {
+        const response = await fetch(glitchForm.action, {
             method: 'POST',
             body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                preview.src = data.glitchedImage;
-                downloadLink.href = data.glitchedImage;
-            }
-        })
-        .catch(error => console.error('Error applying glitch:', error));
-    };
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        if (!response.ok) {
+            throw new Error('The request failed. Please try again (HTTP ' + response.status + ').');
+        }
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Unable to process this image.');
+        return data;
+    }
 
-    controls.forEach(control => {
-        const eventType = control.type === 'checkbox' ? 'change' : 'input';
-        control.addEventListener(eventType, () => {
-            if (control.type === 'range') {
-                // Update value display
-                const valSpan = document.getElementById('val_' + control.id);
-                if (valSpan) {
-                    valSpan.textContent = control.value;
+    function addLibraryImage(src, gridId) {
+        const grid = document.getElementById(gridId);
+        const filename = src.split('/').pop();
+        if (libraryImages.some(image => image.src === src)) return;
+        const item = document.createElement('div');
+        item.className = 'library-item';
+        item.addEventListener('click', () => handleItemClick(item, src, filename));
+        const badge = document.createElement('div');
+        badge.className = 'select-badge';
+        badge.textContent = '✓';
+        const image = document.createElement('img');
+        image.src = src;
+        image.alt = filename;
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        const inspect = document.createElement('div');
+        inspect.className = 'view-overlay';
+        inspect.textContent = 'Inspect';
+        inspect.addEventListener('click', event => {
+            event.stopPropagation();
+            openLightbox(src, filename);
+        });
+        item.append(badge, image, inspect);
+        grid.querySelector('p')?.remove();
+        grid.prepend(item);
+        initLibraryImages();
+    }
+
+    async function render(formData, kind = 'edit') {
+        if (active) return;
+        active = true;
+        pendingRender = false;
+        resultCurrent = false;
+        const requestRevision = revision;
+        updateBusyState();
+        showStatus(kind === 'morph' ? 'Blending selected images…' : 'Applying effects…');
+        try {
+            const data = await post(formData);
+            if (!data.glitchedImage || !data.sourceFile) throw new Error('The server returned no image. Please try again.');
+            sourceFileInput.value = data.sourceFile;
+            if (kind !== 'edit') {
+                photoInput.value = '';
+                libImageInput.value = '';
+            }
+            if (data.libraryImage) addLibraryImage(data.libraryImage, 'library-grid');
+            if (kind === 'morph') {
+                selectedImages.clear();
+                document.querySelectorAll('.library-item.selected').forEach(item => item.classList.remove('selected'));
+                // A composite becomes the new original. Apply the visible controls
+                // to it so that the next slider adjustment does not suddenly jump.
+                pendingRender = true;
+            } else if (requestRevision === revision) {
+                const image = new Image();
+                image.src = data.glitchedImage;
+                await image.decode();
+                if (requestRevision === revision) {
+                    preview.src = data.glitchedImage;
+                    downloadLink.href = data.glitchedImage;
+                    document.getElementById('result-container').style.display = 'block';
+                    document.getElementById('placeholder')?.remove();
+                    resultCurrent = true;
+                    showStatus('Ready.');
                 }
             }
+        } catch (error) {
+            if (kind !== 'edit') {
+                pendingRender = false;
+                clearTimeout(timeout);
+                timeout = null;
+            }
+            showStatus(error instanceof SyntaxError ? 'The server returned an invalid response. Please try again.' : error.message, true);
+        } finally {
+            active = false;
+            updateBusyState();
+            flushRender();
+        }
+    }
 
-            // Debounce to avoid too many requests
-            clearTimeout(timeout);
-            timeout = setTimeout(applyGlitchLive, 150);
+    function flushRender() {
+        if (active || !pendingRender || timeout !== null) return;
+        if (!sourceFileInput.value) {
+            pendingRender = false;
+            updateBusyState();
+            return;
+        }
+        const formData = new FormData(glitchForm);
+        formData.delete('photo');
+        formData.delete('library_image');
+        render(formData);
+    }
+
+    function scheduleRender() {
+        revision++;
+        clearTimeout(timeout);
+        if (!sourceFileInput.value && !active) return;
+        pendingRender = true;
+        resultCurrent = false;
+        updateBusyState();
+        showStatus('Updating preview…');
+        timeout = setTimeout(() => {
+            timeout = null;
+            flushRender();
+        }, 180);
+    }
+
+    function updateValue(control) {
+        const value = document.getElementById('val_' + control.id);
+        if (value) value.textContent = control.value;
+    }
+
+    controls.forEach(control => {
+        control.addEventListener(control.type === 'checkbox' ? 'change' : 'input', () => {
+            updateValue(control);
+            scheduleRender();
         });
     });
 
-    const saveOutputBtn = document.getElementById('save-output-btn');
-    if (saveOutputBtn) {
-        saveOutputBtn.addEventListener('click', () => {
-            const preview = document.getElementById('glitched-preview');
-            const url = new URL(preview.src);
-            const filename = url.pathname.split('/').pop();
-            
-            const formData = new FormData();
-            formData.append('action', 'save_to_output');
-            formData.append('filename', filename);
-
-            fetch('index.php', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Saved to Output Library!');
-                    location.reload(); // Reload to show the new image in the grid
-                } else {
-                    alert('Error: ' + data.error);
-                }
-            })
-            .catch(error => console.error('Error saving to output:', error));
+    document.getElementById('random-glitch-btn').addEventListener('click', () => {
+        controls.forEach(control => {
+            if (control.type === 'range') {
+                const min = Number(control.min);
+                const step = Number(control.step) || 1;
+                const steps = Math.floor((Number(control.max) - min) / step);
+                control.value = min + Math.floor(Math.random() * (steps + 1)) * step;
+                updateValue(control);
+            } else if (control.type === 'checkbox') {
+                control.checked = Math.random() > 0.8;
+            } else if (control.tagName === 'SELECT') {
+                control.selectedIndex = Math.floor(Math.random() * control.options.length);
+            } else if (control.type === 'color') {
+                control.value = '#' + Math.floor(Math.random() * 16777216).toString(16).padStart(6, '0');
+            }
         });
-    }
+        scheduleRender();
+    });
+
+    glitchForm.addEventListener('submit', event => {
+        event.preventDefault();
+        if (active || pendingRender) return;
+        if (!photoInput.files.length && !libImageInput.value && !sourceFileInput.value) {
+            showStatus('Choose a JPEG or PNG to begin.', true);
+            return;
+        }
+        revision++;
+        render(new FormData(glitchForm), 'source');
+    });
+
+    photoInput.addEventListener('change', () => {
+        libImageInput.value = '';
+        updateBusyState();
+    });
+
+    glitchForm.addEventListener('morph', () => {
+        if (active || pendingRender) return;
+        if (selectedImages.size < 2) {
+            showStatus('Choose Composite mode and select at least two images to morph.', true);
+            return;
+        }
+        revision++;
+        const formData = new FormData();
+        formData.append('action', 'morph');
+        selectedImages.forEach(src => formData.append('images[]', src));
+        render(formData, 'morph');
+    });
+
+    downloadLink.addEventListener('click', event => {
+        if (downloadLink.getAttribute('aria-disabled') === 'true') event.preventDefault();
+    });
+
+    saveButton.addEventListener('click', async () => {
+        if (active || pendingRender || !resultCurrent) return;
+        active = true;
+        updateBusyState();
+        showStatus('Saving to collection…');
+        const formData = new FormData();
+        formData.append('action', 'save_to_output');
+        formData.append('filename', new URL(preview.src).pathname.split('/').pop());
+        try {
+            const data = await post(formData);
+            addLibraryImage(data.outputImage, 'output-grid');
+            showStatus('Saved to collection.');
+        } catch (error) {
+            showStatus(error.message, true);
+        } finally {
+            active = false;
+            updateBusyState();
+            flushRender();
+        }
+    });
+
+    updateBusyState();
 });

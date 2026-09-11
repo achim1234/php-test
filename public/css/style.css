@@ -14,7 +14,6 @@
 
 * {
     box-sizing: border-box;
-    transition: all 0.25s ease;
 }
 
 body {
@@ -188,6 +187,7 @@ input[type="color"]::-moz-color-swatch {
 
 /* Buttons */
 button, .download-button {
+    transition: background-color 0.2s ease, color 0.2s ease;
     font-family: var(--font-sans);
     text-transform: uppercase;
     letter-spacing: 0.15em;
@@ -211,7 +211,6 @@ button[type="submit"] {
     width: 100%;
     background: var(--accent-color);
     color: var(--bg-color);
-    margin-top: 10px;
 }
 
 button[type="submit"]:hover {
@@ -220,10 +219,18 @@ button[type="submit"]:hover {
 
 .button-group {
     margin-top: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.secondary-button {
+    width: 100%;
 }
 
 .action-buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 15px;
     margin-top: 20px;
     justify-content: center;
@@ -303,6 +310,7 @@ button[type="submit"]:hover {
 }
 
 .library-item img {
+    transition: opacity 0.2s ease, transform 0.2s ease;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -450,11 +458,35 @@ button[type="submit"]:hover {
     color: #444;
 }
 
+#editor-status {
+    min-height: 1.6em;
+    color: var(--text-secondary);
+}
+
+#editor-status.error {
+    color: var(--danger-color);
+}
+
+button:disabled, .download-button[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 4px;
+}
+
 @media (max-width: 800px) {
     .main-layout {
         flex-direction: column;
     }
     .form-section, .result-section {
         width: 100%;
+        min-width: 0;
+        padding: 20px;
+    }
+    .mode-toggle-container {
+        flex-wrap: wrap;
     }
 }

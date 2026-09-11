@@ -29,9 +29,7 @@ $sourceFile = $data['sourceFile'];
     <div class="container">
         <h1>Photo Glitcher</h1>
         
-        <?php if ($error): ?>
-            <p class="error"><?php echo htmlspecialchars($error); ?></p>
-        <?php endif; ?>
+        <p id="editor-status" role="status" aria-live="polite"<?php echo $error ? ' class="error"' : ''; ?>><?php echo htmlspecialchars($error ?? ''); ?></p>
 
         <div class="main-layout">
             <div class="form-section">
@@ -107,6 +105,7 @@ $sourceFile = $data['sourceFile'];
                     
                     <div class="button-group">
                         <button type="submit">Upload and Glitch!</button>
+                        <button type="button" id="random-glitch-btn" class="secondary-button">Randomize Effects</button>
                     </div>
                 </form>
             </div>
@@ -143,7 +142,7 @@ $sourceFile = $data['sourceFile'];
         <div class="library-section">
             <h3>Output Library:</h3>
             <div style="margin-bottom: 20px;">
-                <button type="button" onclick="morphSelected()">Morph Selected</button>
+                <button type="button" id="morph-btn" onclick="morphSelected()">Morph Selected</button>
             </div>
             <div class="library-grid" id="output-grid">
                 <?php
@@ -157,7 +156,7 @@ $sourceFile = $data['sourceFile'];
                 ?>
                     <div class="library-item" onclick="handleItemClick(this, 'output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
                         <div class="select-badge">✓</div>
-                        <img src="output/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>">
+                        <img src="output/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>" loading="lazy" decoding="async">
                         <div class="view-overlay" onclick="event.stopPropagation(); openLightbox('output/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">Inspect</div>
                     </div>
                 <?php 
@@ -170,7 +169,7 @@ $sourceFile = $data['sourceFile'];
 
         <div class="library-section">
             <h3>Or select from Library:</h3>
-            <div class="library-grid">
+            <div class="library-grid" id="library-grid">
                 <?php
                 $images = $controller->getLibraryImages();
                 if (empty($images)): ?>
@@ -182,7 +181,7 @@ $sourceFile = $data['sourceFile'];
                 ?>
                     <div class="library-item" onclick="handleItemClick(this, 'lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">
                         <div class="select-badge">✓</div>
-                        <img src="lib/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>">
+                        <img src="lib/<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($img); ?>" loading="lazy" decoding="async">
                         <div class="view-overlay" onclick="event.stopPropagation(); openLightbox('lib/<?php echo htmlspecialchars($img); ?>', '<?php echo htmlspecialchars($img); ?>')">Inspect</div>
                     </div>
                 <?php 
