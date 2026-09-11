@@ -108,6 +108,58 @@ $sourceFile = $data['sourceFile'];
                         </div>
                     </div>
 
+                    <fieldset class="channel-lab">
+                        <legend>
+                            <span>Channel lab</span>
+                            <small>Cut, boost, isolate, or rewire RGB</small>
+                        </legend>
+                        <div class="channel-sliders">
+                            <div class="control-group channel-control channel-control-red">
+                                <label for="red_channel">Red <span id="val_red_channel">0</span></label>
+                                <input type="range" name="red_channel" id="red_channel" min="-100" max="100" value="0">
+                            </div>
+
+                            <div class="control-group channel-control channel-control-green">
+                                <label for="green_channel">Green <span id="val_green_channel">0</span></label>
+                                <input type="range" name="green_channel" id="green_channel" min="-100" max="100" value="0">
+                            </div>
+
+                            <div class="control-group channel-control channel-control-blue">
+                                <label for="blue_channel">Blue <span id="val_blue_channel">0</span></label>
+                                <input type="range" name="blue_channel" id="blue_channel" min="-100" max="100" value="0">
+                            </div>
+                        </div>
+
+                        <div class="select-control channel-filter-control">
+                            <label for="channel_filter">Channel operation</label>
+                            <select name="channel_filter" id="channel_filter">
+                                <option value="none">Channels intact</option>
+                                <optgroup label="Isolate">
+                                    <option value="red_only">Red only</option>
+                                    <option value="green_only">Green only</option>
+                                    <option value="blue_only">Blue only</option>
+                                </optgroup>
+                                <optgroup label="Invert one channel">
+                                    <option value="invert_red">Invert red</option>
+                                    <option value="invert_green">Invert green</option>
+                                    <option value="invert_blue">Invert blue</option>
+                                </optgroup>
+                                <optgroup label="Remove one channel">
+                                    <option value="remove_red">Remove red / cyan</option>
+                                    <option value="remove_green">Remove green / magenta</option>
+                                    <option value="remove_blue">Remove blue / yellow</option>
+                                </optgroup>
+                                <optgroup label="Rewire">
+                                    <option value="swap_red_green">Swap red ↔ green</option>
+                                    <option value="swap_red_blue">Swap red ↔ blue</option>
+                                    <option value="swap_green_blue">Swap green ↔ blue</option>
+                                    <option value="rotate_rgb">Rotate R → B → G</option>
+                                    <option value="rotate_rbg">Rotate R → G → B</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                    </fieldset>
+
                     <div class="control-row">
                         <div class="select-control">
                             <label for="glitch_mode">Distortion engine</label>

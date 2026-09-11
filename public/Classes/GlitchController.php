@@ -213,6 +213,29 @@ class GlitchController
             $glitchMode = 'signal';
         }
         $chaos = max(0, min(100, (int)($_POST['chaos'] ?? 50)));
+        $redChannel = max(-100, min(100, (int)($_POST['red_channel'] ?? 0)));
+        $greenChannel = max(-100, min(100, (int)($_POST['green_channel'] ?? 0)));
+        $blueChannel = max(-100, min(100, (int)($_POST['blue_channel'] ?? 0)));
+        $channelFilter = is_string($_POST['channel_filter'] ?? null) ? $_POST['channel_filter'] : 'none';
+        if (!in_array($channelFilter, [
+            'none',
+            'red_only',
+            'green_only',
+            'blue_only',
+            'invert_red',
+            'invert_green',
+            'invert_blue',
+            'remove_red',
+            'remove_green',
+            'remove_blue',
+            'swap_red_green',
+            'swap_red_blue',
+            'swap_green_blue',
+            'rotate_rgb',
+            'rotate_rbg',
+        ], true)) {
+            $channelFilter = 'none';
+        }
 
         $isFromLib = file_exists($this->libDir . $sourceFile);
         $sourcePath = $isFromLib ? $this->libDir . $sourceFile : $this->uploadDir . $sourceFile;
@@ -235,6 +258,10 @@ class GlitchController
             $colorIntensity,
             $glitchMode,
             $chaos,
+            $redChannel,
+            $greenChannel,
+            $blueChannel,
+            $channelFilter,
         )) {
             $glitchedImage = 'uploads/' . $destFilename . '?v=' . bin2hex(random_bytes(8));
         } else {

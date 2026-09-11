@@ -26,7 +26,11 @@ class PhotoGlitcher
         string $colorize = '',
         int $colorIntensity = 0,
         string $glitchMode = 'signal',
-        int $chaos = 50
+        int $chaos = 50,
+        int $redChannel = 0,
+        int $greenChannel = 0,
+        int $blueChannel = 0,
+        string $channelFilter = 'none'
     ): bool {
         if (!file_exists($sourcePath)) {
             return false;
@@ -44,6 +48,7 @@ class PhotoGlitcher
         }
 
         $this->applyFilters($src, $brightness, $contrast, $invert, $pixelate, $presetFilter, $colorize, $colorIntensity);
+        $this->applyChannelManipulation($src, $redChannel, $greenChannel, $blueChannel, $channelFilter);
 
         $dst = $this->createGlitchedCanvas($src, $rgbShift, $jitter, $vJitter);
         $this->applyDistortionEngine($dst, $glitchMode, max(0, min(100, $chaos)));
@@ -189,6 +194,49 @@ class PhotoGlitcher
             min(255, intdiv($green, 64) * 85),
             min(255, intdiv($blue, 64) * 85),
         ]);
+    }
+
+    private function applyChannelManipulation(
+        GdImage $image,
+        int $redLevel,
+        int $greenLevel,
+        int $blueLevel,
+        string $filter,
+    ): void {
+        if ($redLevel === 0 && $greenLevel === 0 && $blueLevel === 0 && $filter === 'none') {
+            return;
+        }
+
+        $redOffset = (int)round($redLevel * 2.55);
+        $greenOffset = (int)round($greenLevel * 2.55);
+        $blueOffset = (int)round($blueLevel * 2.55);
+
+        $this->transformPixels(
+            $image,
+            static function (int $red, int $green, int $blue) use ($redOffset, $greenOffset, $blueOffset, $filter): array {
+                $red = max(0, min(255, $red + $redOffset));
+                $green = max(0, min(255, $green + $greenOffset));
+                $blue = max(0, min(255, $blue + $blueOffset));
+
+                return match ($filter) {
+                    'red_only' => [$red, 0, 0],
+                    'green_only' => [0, $green, 0],
+                    'blue_only' => [0, 0, $blue],
+                    'invert_red' => [255 - $red, $green, $blue],
+                    'invert_green' => [$red, 255 - $green, $blue],
+                    'invert_blue' => [$red, $green, 255 - $blue],
+                    'remove_red' => [0, $green, $blue],
+                    'remove_green' => [$red, 0, $blue],
+                    'remove_blue' => [$red, $green, 0],
+                    'swap_red_green' => [$green, $red, $blue],
+                    'swap_red_blue' => [$blue, $green, $red],
+                    'swap_green_blue' => [$red, $blue, $green],
+                    'rotate_rgb' => [$green, $blue, $red],
+                    'rotate_rbg' => [$blue, $red, $green],
+                    default => [$red, $green, $blue],
+                };
+            },
+        );
     }
 
     /**

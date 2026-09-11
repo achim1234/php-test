@@ -141,6 +141,63 @@ final class PhotoGlitcherTest extends TestCase
         }
     }
 
+    public function testSingleChannelOperationsProduceExpectedColors(): void
+    {
+        $image = imagecreatetruecolor(1, 1);
+        imagesetpixel($image, 0, 0, 0x204060);
+        $source = $this->imagePath($image);
+        $expectedColors = [
+            'red_only' => 0x200000,
+            'green_only' => 0x004000,
+            'blue_only' => 0x000060,
+            'invert_red' => 0xDF4060,
+            'invert_green' => 0x20BF60,
+            'invert_blue' => 0x20409F,
+            'remove_red' => 0x004060,
+            'remove_green' => 0x200060,
+            'remove_blue' => 0x204000,
+            'swap_red_green' => 0x402060,
+            'swap_red_blue' => 0x604020,
+            'swap_green_blue' => 0x206040,
+            'rotate_rgb' => 0x406020,
+            'rotate_rbg' => 0x602040,
+        ];
+
+        foreach ($expectedColors as $filter => $expectedColor) {
+            $output = $this->imagePath();
+            self::assertTrue((new PhotoGlitcher())->applyGlitch(
+                sourcePath: $source,
+                destPath: $output,
+                rgbShift: 0,
+                jitter: 0,
+                scanlines: 0,
+                chaos: 0,
+                channelFilter: $filter,
+            ), $filter);
+            self::assertSame($expectedColor, imagecolorat(imagecreatefrompng($output), 0, 0), $filter);
+        }
+    }
+
+    public function testChannelLevelsClampAtColorBounds(): void
+    {
+        $image = imagecreatetruecolor(1, 1);
+        imagesetpixel($image, 0, 0, 0x204060);
+        $output = $this->imagePath();
+
+        self::assertTrue((new PhotoGlitcher())->applyGlitch(
+            sourcePath: $this->imagePath($image),
+            destPath: $output,
+            rgbShift: 0,
+            jitter: 0,
+            scanlines: 0,
+            chaos: 0,
+            redChannel: 100,
+            greenChannel: -100,
+            blueChannel: 10,
+        ));
+        self::assertSame(0xFF007A, imagecolorat(imagecreatefrompng($output), 0, 0));
+    }
+
     public function testMorphAveragesAndTilesDifferentSizedImages(): void
     {
         $first = imagecreatetruecolor(2, 1);

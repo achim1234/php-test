@@ -295,6 +295,77 @@ input[type='range']::-moz-range-thumb {
     background: var(--acid);
 }
 
+.channel-lab {
+    min-width: 0;
+    margin: 28px 0 0;
+    padding: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background:
+        linear-gradient(120deg, rgba(255, 68, 88, 0.08), transparent 38%),
+        linear-gradient(240deg, rgba(64, 117, 255, 0.1), transparent 42%),
+        rgba(255, 255, 255, 0.025);
+}
+
+.channel-lab legend {
+    width: 100%;
+    padding: 0 7px;
+    color: var(--white);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.channel-lab legend span,
+.channel-lab legend small {
+    display: inline-block;
+}
+
+.channel-lab legend small {
+    float: right;
+    color: rgba(255, 255, 255, 0.38);
+    font-size: 0.55rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+}
+
+.channel-sliders {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    padding-top: 7px;
+}
+
+.channel-control-red { --channel-color: #ff4559; }
+.channel-control-green { --channel-color: #6dff68; }
+.channel-control-blue { --channel-color: #4e79ff; }
+
+.channel-control label span {
+    color: var(--channel-color);
+}
+
+.channel-control input[type='range']::-webkit-slider-runnable-track {
+    background: linear-gradient(90deg, #30302f, var(--channel-color));
+}
+
+.channel-control input[type='range']::-webkit-slider-thumb {
+    background: var(--channel-color);
+    box-shadow: 0 0 0 1px var(--channel-color);
+}
+
+.channel-control input[type='range']::-moz-range-track {
+    background: linear-gradient(90deg, #30302f, var(--channel-color));
+}
+
+.channel-control input[type='range']::-moz-range-thumb {
+    border-color: var(--channel-color);
+    background: var(--channel-color);
+}
+
+.channel-filter-control {
+    margin-top: 16px;
+}
+
 .control-row {
     display: grid;
     grid-template-columns: 1.1fr 1fr 64px;
@@ -832,6 +903,8 @@ button:disabled, .download-button[aria-disabled='true'] {
     .form-section, .result-section { padding: 22px 18px; }
     .panel-heading { flex-direction: row-reverse; }
     .controls-grid, .button-group { grid-template-columns: 1fr; }
+    .channel-lab legend small { display: none; }
+    .channel-sliders { grid-template-columns: 1fr; gap: 13px; }
     .result-section { min-height: 570px; }
     #placeholder { min-height: 385px; }
     #placeholder p { font-size: 3.8rem; }
