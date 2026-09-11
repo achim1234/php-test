@@ -9,7 +9,7 @@ use GdImage;
 class PhotoGlitcher
 {
     /**
-     * Applies a simple RGB shift glitch effect to an image.
+     * Applies color processing and structural glitch effects to an image.
      */
     public function applyGlitch(
         string $sourcePath,
@@ -24,7 +24,9 @@ class PhotoGlitcher
         int $vJitter = 0,
         string $presetFilter = 'none',
         string $colorize = '',
-        int $colorIntensity = 0
+        int $colorIntensity = 0,
+        string $glitchMode = 'signal',
+        int $chaos = 50
     ): bool {
         if (!file_exists($sourcePath)) {
             return false;
@@ -41,16 +43,13 @@ class PhotoGlitcher
             return false;
         }
 
-        // Pre-processing filters
         $this->applyFilters($src, $brightness, $contrast, $invert, $pixelate, $presetFilter, $colorize, $colorIntensity);
 
-        // Core glitch effect
         $dst = $this->createGlitchedCanvas($src, $rgbShift, $jitter, $vJitter);
+        $this->applyDistortionEngine($dst, $glitchMode, max(0, min(100, $chaos)));
 
-        // Post-processing static/scanlines
         $this->addScanlines($dst, $scanlines, $jitter);
 
-        // Save result
         $result = $this->saveImage($dst, $destPath, $mime);
 
         imagedestroy($src);
@@ -102,6 +101,11 @@ class PhotoGlitcher
             'sepia' => $this->applySepia($image),
             'dramatic' => $this->applyDramatic($image),
             'vintage' => $this->applyVintage($image),
+            'neon' => $this->applyNeon($image),
+            'solarize' => $this->applySolarize($image),
+            'thermal' => $this->applyThermalMap($image),
+            'toxic' => $this->applyToxicChrome($image),
+            'posterize' => $this->applyPosterize($image),
             default => null,
         };
 
@@ -135,6 +139,78 @@ class PhotoGlitcher
     {
         imagefilter($image, IMG_FILTER_COLORIZE, 20, 20, 0, 20);
         imagefilter($image, IMG_FILTER_CONTRAST, -10);
+    }
+
+    private function applyNeon(GdImage $image): void
+    {
+        imagefilter($image, IMG_FILTER_EDGEDETECT);
+        imagefilter($image, IMG_FILTER_GRAYSCALE);
+        imagefilter($image, IMG_FILTER_CONTRAST, -55);
+        imagefilter($image, IMG_FILTER_NEGATE);
+        imagefilter($image, IMG_FILTER_COLORIZE, 50, -35, 110);
+    }
+
+    private function applySolarize(GdImage $image): void
+    {
+        $this->transformPixels($image, static function (int $red, int $green, int $blue): array {
+            return [
+                $red > 127 ? 255 - $red : $red,
+                $green > 127 ? 255 - $green : $green,
+                $blue > 127 ? 255 - $blue : $blue,
+            ];
+        });
+    }
+
+    private function applyThermalMap(GdImage $image): void
+    {
+        $this->transformPixels($image, static function (int $red, int $green, int $blue): array {
+            $level = (int)(($red * 0.299) + ($green * 0.587) + ($blue * 0.114));
+
+            return match (true) {
+                $level < 64 => [0, $level * 2, 128 + ($level * 2)],
+                $level < 128 => [($level - 64) * 4, 255, 255 - (($level - 64) * 4)],
+                $level < 192 => [255, 255 - (($level - 128) * 4), 0],
+                default => [255, ($level - 192) * 4, ($level - 192) * 4],
+            };
+        });
+    }
+
+    private function applyToxicChrome(GdImage $image): void
+    {
+        imagefilter($image, IMG_FILTER_CONTRAST, -45);
+        imagefilter($image, IMG_FILTER_COLORIZE, -70, 70, 20);
+        imagefilter($image, IMG_FILTER_SMOOTH, -7);
+    }
+
+    private function applyPosterize(GdImage $image): void
+    {
+        $this->transformPixels($image, static fn(int $red, int $green, int $blue): array => [
+            min(255, intdiv($red, 64) * 85),
+            min(255, intdiv($green, 64) * 85),
+            min(255, intdiv($blue, 64) * 85),
+        ]);
+    }
+
+    /**
+     * @param callable(int, int, int): array{int, int, int} $transform
+     */
+    private function transformPixels(GdImage $image, callable $transform): void
+    {
+        $width = imagesx($image);
+        $height = imagesy($image);
+
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $width; $x++) {
+                $color = imagecolorat($image, $x, $y);
+                [$red, $green, $blue] = $transform(
+                    ($color >> 16) & 0xFF,
+                    ($color >> 8) & 0xFF,
+                    $color & 0xFF,
+                );
+                $alpha = $color & 0x7F000000;
+                imagesetpixel($image, $x, $y, $alpha | ($red << 16) | ($green << 8) | $blue);
+            }
+        }
     }
 
     private function hexToRgb(string $hex): ?array
@@ -207,6 +283,162 @@ class PhotoGlitcher
         }
 
         return $dst;
+    }
+
+    private function applyDistortionEngine(GdImage $image, string $mode, int $chaos): void
+    {
+        if ($chaos === 0) {
+            return;
+        }
+
+        match ($mode) {
+            'datamosh' => $this->applyDataMosh($image, $chaos),
+            'melt' => $this->applyPixelMelt($image, $chaos),
+            'mirror' => $this->applyMirrorFold($image, $chaos),
+            'vhs' => $this->applyVhsRupture($image, $chaos),
+            'shred' => $this->applySliceShred($image, $chaos),
+            default => null,
+        };
+    }
+
+    private function applyDataMosh(GdImage $image, int $chaos): void
+    {
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $copies = max(2, (int)ceil($chaos / 4));
+        $maxShift = max(1, (int)round($width * (0.08 + ($chaos / 180))));
+        $maxBlockWidth = max(1, (int)round($width * (0.08 + ($chaos / 250))));
+        $maxBlockHeight = max(1, (int)round($height * (0.03 + ($chaos / 500))));
+
+        for ($i = 0; $i < $copies; $i++) {
+            $blockWidth = random_int(1, min($width, $maxBlockWidth));
+            $blockHeight = random_int(1, min($height, $maxBlockHeight));
+            $sourceX = random_int(0, $width - $blockWidth);
+            $sourceY = random_int(0, $height - $blockHeight);
+            $targetX = max(0, min($width - $blockWidth, $sourceX + random_int(-$maxShift, $maxShift)));
+            $targetY = max(0, min($height - $blockHeight, $sourceY + random_int(-$maxBlockHeight, $maxBlockHeight)));
+
+            imagecopy($image, $image, $targetX, $targetY, $sourceX, $sourceY, $blockWidth, $blockHeight);
+        }
+    }
+
+    private function applyPixelMelt(GdImage $image, int $chaos): void
+    {
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $drips = max(2, (int)ceil($chaos / 6));
+        $maxStripWidth = max(1, (int)round($width * 0.12));
+
+        for ($i = 0; $i < $drips; $i++) {
+            $stripWidth = random_int(1, min($width, $maxStripWidth));
+            $sourceHeight = random_int(1, max(1, (int)round($height * 0.08)));
+            $sourceX = random_int(0, $width - $stripWidth);
+            $sourceY = random_int(0, max(0, $height - $sourceHeight));
+            $meltHeight = min(
+                $height - $sourceY,
+                $sourceHeight + max(1, (int)round($height * $chaos / 120)),
+            );
+            $strip = imagecreatetruecolor($stripWidth, $sourceHeight);
+            imagecopy($strip, $image, 0, 0, $sourceX, $sourceY, $stripWidth, $sourceHeight);
+            imagecopyresampled(
+                $image,
+                $strip,
+                $sourceX,
+                $sourceY,
+                0,
+                0,
+                $stripWidth,
+                $meltHeight,
+                $stripWidth,
+                $sourceHeight,
+            );
+            imagedestroy($strip);
+        }
+    }
+
+    private function applyMirrorFold(GdImage $image, int $chaos): void
+    {
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $leftWidth = (int)ceil($width / 2);
+        $rightWidth = $width - $leftWidth;
+
+        if ($rightWidth > 0) {
+            $left = imagecrop($image, ['x' => 0, 'y' => 0, 'width' => $leftWidth, 'height' => $height]);
+            if ($left !== false) {
+                imageflip($left, IMG_FLIP_HORIZONTAL);
+                imagecopy($image, $left, $leftWidth, 0, max(0, $leftWidth - $rightWidth), 0, $rightWidth, $height);
+                imagedestroy($left);
+            }
+        }
+
+        if ($chaos < 45) {
+            return;
+        }
+
+        $topHeight = (int)ceil($height / 2);
+        $bottomHeight = $height - $topHeight;
+        if ($bottomHeight > 0) {
+            $top = imagecrop($image, ['x' => 0, 'y' => 0, 'width' => $width, 'height' => $topHeight]);
+            if ($top !== false) {
+                imageflip($top, IMG_FLIP_VERTICAL);
+                imagecopy($image, $top, 0, $topHeight, 0, max(0, $topHeight - $bottomHeight), $width, $bottomHeight);
+                imagedestroy($top);
+            }
+        }
+
+        if ($chaos >= 80) {
+            $this->applyDataMosh($image, (int)round($chaos / 2));
+        }
+    }
+
+    private function applyVhsRupture(GdImage $image, int $chaos): void
+    {
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $tears = max(2, (int)ceil($chaos / 7));
+        $maxShift = max(1, (int)round($width * $chaos / 180));
+        $maxBandHeight = max(1, (int)round($height * 0.04));
+
+        for ($i = 0; $i < $tears; $i++) {
+            $bandHeight = random_int(1, min($height, $maxBandHeight));
+            $y = random_int(0, $height - $bandHeight);
+            imagecopy($image, $image, random_int(-$maxShift, $maxShift), $y, 0, $y, $width, $bandHeight);
+        }
+
+        $lineColor = imagecolorallocatealpha($image, 220, 230, 255, max(55, 110 - $chaos));
+        $lineSpacing = max(2, 12 - (int)round($chaos / 10));
+        for ($y = 0; $y < $height; $y += $lineSpacing) {
+            imageline($image, 0, $y, $width - 1, $y, $lineColor);
+        }
+
+        imagefilter($image, IMG_FILTER_COLORIZE, 8, -5, 24, 65);
+    }
+
+    private function applySliceShred(GdImage $image, int $chaos): void
+    {
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $slices = max(2, (int)ceil($chaos / 7));
+        $maxSliceWidth = max(1, (int)round($width * 0.08));
+        $maxOffset = max(1, (int)round($height * $chaos / 130));
+
+        for ($i = 0; $i < $slices; $i++) {
+            $sliceWidth = random_int(1, min($width, $maxSliceWidth));
+            $x = random_int(0, $width - $sliceWidth);
+            $slice = imagecreatetruecolor($sliceWidth, $height);
+            imagecopy($slice, $image, 0, 0, $x, 0, $sliceWidth, $height);
+            $offset = random_int(-$maxOffset, $maxOffset);
+            imagecopy($image, $slice, $x, $offset, 0, 0, $sliceWidth, $height);
+            if ($offset > 0) {
+                imagecopy($image, $slice, $x, $offset - $height, 0, 0, $sliceWidth, $height);
+            } elseif ($offset < 0) {
+                imagecopy($image, $slice, $x, $height + $offset, 0, 0, $sliceWidth, $height);
+            }
+            imagedestroy($slice);
+        }
+
+        $this->applyDataMosh($image, (int)round($chaos * 0.65));
     }
 
     private function addScanlines(GdImage $image, int $scanlines, int $jitter): void

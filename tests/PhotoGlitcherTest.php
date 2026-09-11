@@ -25,6 +25,25 @@ final class PhotoGlitcherTest extends TestCase
         return $path;
     }
 
+    private function patternedImage(int $width = 32, int $height = 24): GdImage
+    {
+        $image = imagecreatetruecolor($width, $height);
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $width; $x++) {
+                imagesetpixel(
+                    $image,
+                    $x,
+                    $y,
+                    ((($x * 37 + $y * 11) % 256) << 16)
+                    | ((($x * 13 + $y * 43) % 256) << 8)
+                    | (($x * 29 + $y * 17) % 256),
+                );
+            }
+        }
+
+        return $image;
+    }
+
     public function testRgbShiftKeepsChannelsAndDimensions(): void
     {
         $image = imagecreatetruecolor(4, 1);
@@ -79,6 +98,47 @@ final class PhotoGlitcherTest extends TestCase
             $this->imagePath(imagecreatetruecolor(1, 1)), $output, 0, 1, 50
         ));
         self::assertSame([1, 1], array_slice(getimagesize($output), 0, 2));
+    }
+
+    public function testDistortionEnginesTransformPixelsAndPreserveDimensions(): void
+    {
+        $source = $this->imagePath($this->patternedImage());
+        $sourceHash = md5_file($source);
+
+        foreach (['datamosh', 'melt', 'mirror', 'vhs', 'shred'] as $mode) {
+            $output = $this->imagePath();
+            self::assertTrue((new PhotoGlitcher())->applyGlitch(
+                sourcePath: $source,
+                destPath: $output,
+                rgbShift: 0,
+                jitter: 0,
+                scanlines: 0,
+                glitchMode: $mode,
+                chaos: 100,
+            ), $mode);
+            self::assertSame([32, 24], array_slice(getimagesize($output), 0, 2), $mode);
+            self::assertNotSame($sourceHash, md5_file($output), $mode);
+        }
+    }
+
+    public function testExtremeColorProcessesTransformPixels(): void
+    {
+        $source = $this->imagePath($this->patternedImage(12, 10));
+        $sourceHash = md5_file($source);
+
+        foreach (['neon', 'solarize', 'thermal', 'toxic', 'posterize'] as $filter) {
+            $output = $this->imagePath();
+            self::assertTrue((new PhotoGlitcher())->applyGlitch(
+                sourcePath: $source,
+                destPath: $output,
+                rgbShift: 0,
+                jitter: 0,
+                scanlines: 0,
+                presetFilter: $filter,
+                chaos: 0,
+            ), $filter);
+            self::assertNotSame($sourceHash, md5_file($output), $filter);
+        }
     }
 
     public function testMorphAveragesAndTilesDifferentSizedImages(): void

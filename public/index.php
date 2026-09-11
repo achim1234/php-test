@@ -101,9 +101,26 @@ $sourceFile = $data['sourceFile'];
                             <label for="contrast">Contrast <span id="val_contrast">0</span></label>
                             <input type="range" name="contrast" id="contrast" min="-100" max="100" value="0">
                         </div>
+
+                        <div class="control-group chaos-control">
+                            <label for="chaos">Chaos intensity <span id="val_chaos">50</span></label>
+                            <input type="range" name="chaos" id="chaos" min="0" max="100" value="50">
+                        </div>
                     </div>
 
                     <div class="control-row">
+                        <div class="select-control">
+                            <label for="glitch_mode">Distortion engine</label>
+                            <select name="glitch_mode" id="glitch_mode">
+                                <option value="signal">Signal Shift</option>
+                                <option value="datamosh">Data Mosh</option>
+                                <option value="melt">Pixel Melt</option>
+                                <option value="mirror">Mirror Fold</option>
+                                <option value="vhs">VHS Rupture</option>
+                                <option value="shred">Slice Shred</option>
+                            </select>
+                        </div>
+
                         <div class="select-control">
                             <label for="preset_filter">Color process</label>
                             <select name="preset_filter" id="preset_filter">
@@ -112,6 +129,11 @@ $sourceFile = $data['sourceFile'];
                                 <option value="sepia">Sepia</option>
                                 <option value="vintage">Vintage film</option>
                                 <option value="dramatic">Dramatic</option>
+                                <option value="neon">Neon Edge</option>
+                                <option value="solarize">Solarize</option>
+                                <option value="thermal">Thermal Map</option>
+                                <option value="toxic">Toxic Chrome</option>
+                                <option value="posterize">Posterize</option>
                             </select>
                         </div>
 

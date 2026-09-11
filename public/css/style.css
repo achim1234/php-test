@@ -235,6 +235,8 @@ input[type='file']::file-selector-button {
     gap: 24px 22px;
 }
 
+.chaos-control { grid-column: 1 / -1; }
+
 .control-group label, .select-control label, .color-control label {
     display: flex;
     justify-content: space-between;
@@ -295,7 +297,7 @@ input[type='range']::-moz-range-thumb {
 
 .control-row {
     display: grid;
-    grid-template-columns: 1fr 74px;
+    grid-template-columns: 1.1fr 1fr 64px;
     gap: 12px;
     margin-top: 26px;
 }
