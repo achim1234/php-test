@@ -203,11 +203,13 @@ class GlitchController
         $pixelate = max(0, min(20, (int)($_POST['pixelate'] ?? 0)));
         $vJitter = max(0, min(100, (int)($_POST['v_jitter'] ?? 0)));
         $presetFilter = is_string($_POST['preset_filter'] ?? null) ? $_POST['preset_filter'] : 'none';
-        if (!in_array($presetFilter, ['none', 'grayscale', 'sepia', 'vintage', 'dramatic', 'neon', 'solarize', 'thermal', 'toxic', 'posterize'], true)) {
+        if (!in_array($presetFilter, ['none', 'grayscale', 'sepia', 'vintage', 'dramatic', 'neon', 'solarize', 'thermal', 'toxic', 'posterize', 'duotone'], true)) {
             $presetFilter = 'none';
         }
         $colorize = is_string($_POST['colorize'] ?? null) ? $_POST['colorize'] : '';
         $colorIntensity = max(0, min(100, (int)($_POST['color_intensity'] ?? 0)));
+        $duotoneShadow = is_string($_POST['duotone_shadow'] ?? null) ? $_POST['duotone_shadow'] : '#24105e';
+        $duotoneHighlight = is_string($_POST['duotone_highlight'] ?? null) ? $_POST['duotone_highlight'] : '#ffef5c';
         $glitchMode = is_string($_POST['glitch_mode'] ?? null) ? $_POST['glitch_mode'] : 'signal';
         if (!in_array($glitchMode, ['signal', 'datamosh', 'melt', 'mirror', 'vhs', 'shred'], true)) {
             $glitchMode = 'signal';
@@ -262,6 +264,8 @@ class GlitchController
             $greenChannel,
             $blueChannel,
             $channelFilter,
+            $duotoneShadow,
+            $duotoneHighlight,
         )) {
             $glitchedImage = 'uploads/' . $destFilename . '?v=' . bin2hex(random_bytes(8));
         } else {

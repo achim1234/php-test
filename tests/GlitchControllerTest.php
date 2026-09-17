@@ -78,6 +78,20 @@ final class GlitchControllerTest extends TestCase
         self::assertNotSame($first['glitchedImage'], $second['glitchedImage']);
     }
 
+    public function testDuotonePaletteIsAppliedThroughTheController(): void
+    {
+        $filename = $this->fixture('lib', 0x000000);
+        $_POST['source_file'] = $filename;
+        $_POST['preset_filter'] = 'duotone';
+        $_POST['duotone_shadow'] = '#123456';
+        $_POST['duotone_highlight'] = '#fedcba';
+
+        $data = $this->request();
+
+        self::assertNull($data['error']);
+        self::assertSame(0x123456, $this->resultPixel($data));
+    }
+
     public function testLibrarySelectionDistinguishesSameNamedFiles(): void
     {
         $filename = $this->fixture('lib', 0xFF0000);

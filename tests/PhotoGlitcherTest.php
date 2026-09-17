@@ -141,6 +141,34 @@ final class PhotoGlitcherTest extends TestCase
         }
     }
 
+    public function testDuotoneMapsLuminanceToCustomPaletteAndPreservesAlpha(): void
+    {
+        $image = imagecreatetruecolor(3, 1);
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
+        imagesetpixel($image, 0, 0, 0x00000000);
+        imagesetpixel($image, 1, 0, 0x00808080);
+        imagesetpixel($image, 2, 0, 0x40FFFFFF);
+        $output = $this->imagePath();
+
+        self::assertTrue((new PhotoGlitcher())->applyGlitch(
+            sourcePath: $this->imagePath($image),
+            destPath: $output,
+            rgbShift: 0,
+            jitter: 0,
+            scanlines: 0,
+            presetFilter: 'duotone',
+            chaos: 0,
+            duotoneShadow: '#120034',
+            duotoneHighlight: '#f0e050',
+        ));
+
+        $result = imagecreatefrompng($output);
+        self::assertSame(0x00120034, imagecolorat($result, 0, 0));
+        self::assertSame(0x00817042, imagecolorat($result, 1, 0));
+        self::assertSame(0x40F0E050, imagecolorat($result, 2, 0));
+    }
+
     public function testSingleChannelOperationsProduceExpectedColors(): void
     {
         $image = imagecreatetruecolor(1, 1);

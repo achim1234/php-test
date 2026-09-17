@@ -30,7 +30,9 @@ class PhotoGlitcher
         int $redChannel = 0,
         int $greenChannel = 0,
         int $blueChannel = 0,
-        string $channelFilter = 'none'
+        string $channelFilter = 'none',
+        string $duotoneShadow = '#24105e',
+        string $duotoneHighlight = '#ffef5c',
     ): bool {
         if (!file_exists($sourcePath)) {
             return false;
@@ -47,7 +49,18 @@ class PhotoGlitcher
             return false;
         }
 
-        $this->applyFilters($src, $brightness, $contrast, $invert, $pixelate, $presetFilter, $colorize, $colorIntensity);
+        $this->applyFilters(
+            $src,
+            $brightness,
+            $contrast,
+            $invert,
+            $pixelate,
+            $presetFilter,
+            $colorize,
+            $colorIntensity,
+            $duotoneShadow,
+            $duotoneHighlight,
+        );
         $this->applyChannelManipulation($src, $redChannel, $greenChannel, $blueChannel, $channelFilter);
 
         $dst = $this->createGlitchedCanvas($src, $rgbShift, $jitter, $vJitter);
@@ -86,7 +99,9 @@ class PhotoGlitcher
         int $pixelate,
         string $presetFilter = 'none',
         string $colorize = '',
-        int $colorIntensity = 0
+        int $colorIntensity = 0,
+        string $duotoneShadow = '#24105e',
+        string $duotoneHighlight = '#ffef5c',
     ): void {
         if ($brightness !== 0 || $contrast !== 0) {
             imagefilter($image, IMG_FILTER_BRIGHTNESS, $brightness);
@@ -111,6 +126,7 @@ class PhotoGlitcher
             'thermal' => $this->applyThermalMap($image),
             'toxic' => $this->applyToxicChrome($image),
             'posterize' => $this->applyPosterize($image),
+            'duotone' => $this->applyDuotone($image, $duotoneShadow, $duotoneHighlight),
             default => null,
         };
 
@@ -196,6 +212,26 @@ class PhotoGlitcher
         ]);
     }
 
+    private function applyDuotone(GdImage $image, string $shadowColor, string $highlightColor): void
+    {
+        $shadow = $this->hexToRgb($shadowColor) ?? ['r' => 36, 'g' => 16, 'b' => 94];
+        $highlight = $this->hexToRgb($highlightColor) ?? ['r' => 255, 'g' => 239, 'b' => 92];
+
+        $this->transformPixels(
+            $image,
+            static function (int $red, int $green, int $blue) use ($shadow, $highlight): array {
+                $level = intdiv(($red * 299) + ($green * 587) + ($blue * 114) + 500, 1000);
+                $mix = $level / 255;
+
+                return [
+                    (int)round($shadow['r'] + (($highlight['r'] - $shadow['r']) * $mix)),
+                    (int)round($shadow['g'] + (($highlight['g'] - $shadow['g']) * $mix)),
+                    (int)round($shadow['b'] + (($highlight['b'] - $shadow['b']) * $mix)),
+                ];
+            },
+        );
+    }
+
     private function applyChannelManipulation(
         GdImage $image,
         int $redLevel,
@@ -246,6 +282,8 @@ class PhotoGlitcher
     {
         $width = imagesx($image);
         $height = imagesy($image);
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
 
         for ($y = 0; $y < $height; $y++) {
             for ($x = 0; $x < $width; $x++) {
@@ -264,6 +302,10 @@ class PhotoGlitcher
     private function hexToRgb(string $hex): ?array
     {
         $hex = str_replace('#', '', $hex);
+        if (preg_match('/^(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $hex) !== 1) {
+            return null;
+        }
+
         if (strlen($hex) === 3) {
             $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
             $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));

@@ -22,7 +22,7 @@ $sourceFile = $data['sourceFile'];
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=<?php echo filemtime(__DIR__ . '/css/style.css'); ?>">
 </head>
 <body>
     <div class="site-shell">
@@ -186,6 +186,7 @@ $sourceFile = $data['sourceFile'];
                                 <option value="thermal">Thermal Map</option>
                                 <option value="toxic">Toxic Chrome</option>
                                 <option value="posterize">Posterize</option>
+                                <option value="duotone">Duotone Gradient</option>
                             </select>
                         </div>
 
@@ -194,6 +195,23 @@ $sourceFile = $data['sourceFile'];
                             <input type="color" name="colorize" id="colorize" value="#7967ff">
                         </div>
                     </div>
+
+                    <fieldset class="duotone-palette" id="duotone-palette">
+                        <legend>
+                            <span>Duotone palette</span>
+                            <small id="duotone-palette-status">Choose Duotone Gradient to activate</small>
+                        </legend>
+                        <div class="duotone-colors">
+                            <div class="color-control">
+                                <label for="duotone_shadow">Shadow ink</label>
+                                <input type="color" name="duotone_shadow" id="duotone_shadow" value="#24105e">
+                            </div>
+                            <div class="color-control">
+                                <label for="duotone_highlight">Highlight flare</label>
+                                <input type="color" name="duotone_highlight" id="duotone_highlight" value="#ffef5c">
+                            </div>
+                        </div>
+                    </fieldset>
 
                     <label class="toggle-control" for="invert">
                         <span>Invert spectrum</span>
@@ -330,6 +348,6 @@ $sourceFile = $data['sourceFile'];
         <button type="button" id="select-lib-btn" class="lightbox-select">Use this image <span aria-hidden="true">↗</span></button>
     </div>
 
-    <script src="js/scripts.js"></script>
+    <script src="js/scripts.js?v=<?php echo filemtime(__DIR__ . '/js/scripts.js'); ?>"></script>
 </body>
 </html>

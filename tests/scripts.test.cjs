@@ -36,16 +36,20 @@ function editor(source = 'original.png') {
     const ids = ['lightbox', 'lightbox-img', 'lightbox-caption', 'library_image_input', 'glitchForm',
         'select-lib-btn', 'glitched-preview', 'download-link', 'source_file', 'photo', 'submit',
         'save-output-btn', 'morph-btn', 'editor-status', 'result-container', 'placeholder',
-        'random-glitch-btn', 'output-grid', 'library-grid', 'val_rgb_shift'];
+        'random-glitch-btn', 'output-grid', 'library-grid', 'val_rgb_shift', 'preset_filter',
+        'duotone-palette', 'duotone-palette-status', 'duotone_shadow', 'duotone_highlight'];
     const elements = Object.fromEntries(ids.map(id => [id, new Element(id)]));
     const range = elements.rgb_shift = new Element('rgb_shift', 'range');
     Object.assign(range, { min: '0', max: '50', step: '1', value: '10' });
+    Object.assign(elements.preset_filter, { tagName: 'SELECT', value: 'none', options: ['none', 'duotone'] });
+    Object.assign(elements.duotone_shadow, { type: 'color', value: '#24105e' });
+    Object.assign(elements.duotone_highlight, { type: 'color', value: '#ffef5c' });
     elements.source_file.value = source;
     elements.photo.type = 'file';
     elements['glitched-preview'].src = source ? 'uploads/previous.png' : '';
     const form = elements.glitchForm;
     form.action = 'https://example.test/index.php';
-    form.querySelectorAll = () => [range];
+    form.querySelectorAll = () => [range, elements.preset_filter, elements.duotone_shadow, elements.duotone_highlight];
     form.querySelector = () => elements.submit;
     const document = new EventTarget();
     document.getElementById = id => elements[id];
@@ -59,7 +63,7 @@ function editor(source = 'original.png') {
         constructor(form) {
             super();
             if (form) {
-                for (const id of ['source_file', 'library_image_input', 'rgb_shift', 'photo']) {
+                for (const id of ['source_file', 'library_image_input', 'rgb_shift', 'photo', 'preset_filter', 'duotone_shadow', 'duotone_highlight']) {
                     const element = elements[id];
                     if (!element.disabled) this.append(id === 'library_image_input' ? 'library_image' : id, element.value);
                 }
@@ -144,6 +148,23 @@ test('randomizing effects replaces a pending slider update', async () => {
     assert.equal(app.requests[0].body.get('rgb_shift'), String(app.elements.rgb_shift.value));
     await app.reply(0, result('uploads/random.png'));
     assert.equal(app.elements['save-output-btn'].disabled, false);
+});
+
+test('changing a duotone color activates the filter and sends both palette colors', async () => {
+    const app = editor();
+    app.elements.duotone_shadow.value = '#102030';
+    app.elements.duotone_shadow.dispatchEvent(new Event('input'));
+
+    assert.equal(app.elements.preset_filter.value, 'duotone');
+    assert.equal(app.elements['duotone-palette'].classList.contains('is-active'), true);
+    assert.match(app.elements['duotone-palette-status'].textContent, /Active/);
+
+    app.tick();
+    assert.equal(app.requests.length, 1);
+    assert.equal(app.requests[0].body.get('preset_filter'), 'duotone');
+    assert.equal(app.requests[0].body.get('duotone_shadow'), '#102030');
+    assert.equal(app.requests[0].body.get('duotone_highlight'), '#ffef5c');
+    await app.reply(0, result('uploads/duotone.png'));
 });
 
 test('failed requests unlock the editor and can be retried', async () => {

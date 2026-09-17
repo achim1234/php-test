@@ -113,6 +113,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveButton = document.getElementById('save-output-btn');
     const morphButton = document.getElementById('morph-btn');
     const status = document.getElementById('editor-status');
+    const presetFilter = document.getElementById('preset_filter');
+    const duotonePalette = document.getElementById('duotone-palette');
+    const duotonePaletteStatus = document.getElementById('duotone-palette-status');
     let active = false;
     let pendingRender = false;
     let timeout = null;
@@ -260,12 +263,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (value) value.textContent = control.value;
     }
 
+    function updateDuotonePalette() {
+        const isActive = presetFilter.value === 'duotone';
+        duotonePalette.classList.toggle('is-active', isActive);
+        duotonePaletteStatus.textContent = isActive
+            ? 'Active — choose any two colors'
+            : 'Choose Duotone Gradient to activate';
+    }
+
     controls.forEach(control => {
         control.addEventListener(control.type === 'checkbox' ? 'change' : 'input', () => {
+            if (control.id === 'duotone_shadow' || control.id === 'duotone_highlight') {
+                presetFilter.value = 'duotone';
+            }
             updateValue(control);
+            updateDuotonePalette();
             scheduleRender();
         });
     });
+
+    updateDuotonePalette();
 
     document.getElementById('random-glitch-btn').addEventListener('click', () => {
         controls.forEach(control => {
@@ -283,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 control.value = '#' + Math.floor(Math.random() * 16777216).toString(16).padStart(6, '0');
             }
         });
+        updateDuotonePalette();
         scheduleRender();
     });
 
