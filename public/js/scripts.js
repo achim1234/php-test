@@ -85,6 +85,7 @@ if (selectLibBtn) {
         // Clear file input to prioritize library selection
         document.getElementById('photo').value = '';
         closeLightbox();
+        glitchForm.dispatchEvent(new Event('reset-effects'));
         glitchForm.requestSubmit();
     });
 }
@@ -271,6 +272,21 @@ document.addEventListener('DOMContentLoaded', () => {
             : 'Choose Duotone Gradient to activate';
     }
 
+    function resetEffects() {
+        controls.forEach(control => {
+            if (control.type === 'range') {
+                control.value = '0';
+                updateValue(control);
+            } else if (control.type === 'checkbox') {
+                control.checked = false;
+            } else if (control.tagName === 'SELECT') {
+                control.selectedIndex = 0;
+                control.value = control.options[0]?.value ?? control.options[0] ?? '';
+            }
+        });
+        updateDuotonePalette();
+    }
+
     controls.forEach(control => {
         control.addEventListener(control.type === 'checkbox' ? 'change' : 'input', () => {
             if (control.id === 'duotone_shadow' || control.id === 'duotone_highlight') {
@@ -283,6 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     updateDuotonePalette();
+    glitchForm.addEventListener('reset-effects', resetEffects);
 
     document.getElementById('random-glitch-btn').addEventListener('click', () => {
         controls.forEach(control => {
@@ -317,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     photoInput.addEventListener('change', () => {
         libImageInput.value = '';
+        resetEffects();
         updateBusyState();
     });
 

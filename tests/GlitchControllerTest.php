@@ -78,6 +78,17 @@ final class GlitchControllerTest extends TestCase
         self::assertNotSame($first['glitchedImage'], $second['glitchedImage']);
     }
 
+    public function testMissingEffectValuesDefaultToAnUnfilteredImage(): void
+    {
+        $filename = $this->fixture('lib', 0x123456);
+        $_POST = ['source_file' => $filename];
+
+        $data = $this->request();
+
+        self::assertNull($data['error']);
+        self::assertSame(0x123456, $this->resultPixel($data));
+    }
+
     public function testDuotonePaletteIsAppliedThroughTheController(): void
     {
         $filename = $this->fixture('lib', 0x000000);

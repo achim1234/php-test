@@ -40,7 +40,7 @@ function editor(source = 'original.png') {
         'duotone-palette', 'duotone-palette-status', 'duotone_shadow', 'duotone_highlight'];
     const elements = Object.fromEntries(ids.map(id => [id, new Element(id)]));
     const range = elements.rgb_shift = new Element('rgb_shift', 'range');
-    Object.assign(range, { min: '0', max: '50', step: '1', value: '10' });
+    Object.assign(range, { min: '0', max: '50', step: '1', value: '0' });
     Object.assign(elements.preset_filter, { tagName: 'SELECT', value: 'none', options: ['none', 'duotone'] });
     Object.assign(elements.duotone_shadow, { type: 'color', value: '#24105e' });
     Object.assign(elements.duotone_highlight, { type: 'color', value: '#ffef5c' });
@@ -165,6 +165,22 @@ test('changing a duotone color activates the filter and sends both palette color
     assert.equal(app.requests[0].body.get('duotone_shadow'), '#102030');
     assert.equal(app.requests[0].body.get('duotone_highlight'), '#ffef5c');
     await app.reply(0, result('uploads/duotone.png'));
+});
+
+test('selecting a new library image resets effects before its first render', async () => {
+    const app = editor();
+    app.elements.rgb_shift.value = '37';
+    app.elements.preset_filter.value = 'duotone';
+    vm.runInContext("currentLibFile = 'lib/fresh.png'", app.context);
+
+    app.click('select-lib-btn');
+
+    assert.equal(app.requests.length, 1);
+    assert.equal(app.requests[0].body.get('library_image'), 'lib/fresh.png');
+    assert.equal(app.requests[0].body.get('rgb_shift'), '0');
+    assert.equal(app.requests[0].body.get('preset_filter'), 'none');
+    assert.equal(app.elements['duotone-palette'].classList.contains('is-active'), false);
+    await app.reply(0, result('uploads/fresh.png', 'fresh.png'));
 });
 
 test('failed requests unlock the editor and can be retried', async () => {

@@ -63,13 +63,13 @@ $sourceFile = $data['sourceFile'];
 
                     <div class="controls-grid">
                         <div class="control-group">
-                            <label for="rgb_shift">RGB shift <span id="val_rgb_shift">10</span></label>
-                            <input type="range" name="rgb_shift" id="rgb_shift" min="0" max="50" value="10">
+                            <label for="rgb_shift">RGB shift <span id="val_rgb_shift">0</span></label>
+                            <input type="range" name="rgb_shift" id="rgb_shift" min="0" max="50" value="0">
                         </div>
 
                         <div class="control-group">
-                            <label for="jitter">Horizontal jitter <span id="val_jitter">20</span></label>
-                            <input type="range" name="jitter" id="jitter" min="0" max="100" value="20">
+                            <label for="jitter">Horizontal jitter <span id="val_jitter">0</span></label>
+                            <input type="range" name="jitter" id="jitter" min="0" max="100" value="0">
                         </div>
 
                         <div class="control-group">
@@ -78,8 +78,8 @@ $sourceFile = $data['sourceFile'];
                         </div>
 
                         <div class="control-group">
-                            <label for="scanlines">Signal noise <span id="val_scanlines">10</span></label>
-                            <input type="range" name="scanlines" id="scanlines" min="0" max="50" value="10">
+                            <label for="scanlines">Signal noise <span id="val_scanlines">0</span></label>
+                            <input type="range" name="scanlines" id="scanlines" min="0" max="50" value="0">
                         </div>
 
                         <div class="control-group">
@@ -103,8 +103,8 @@ $sourceFile = $data['sourceFile'];
                         </div>
 
                         <div class="control-group chaos-control">
-                            <label for="chaos">Chaos intensity <span id="val_chaos">50</span></label>
-                            <input type="range" name="chaos" id="chaos" min="0" max="100" value="50">
+                            <label for="chaos">Chaos intensity <span id="val_chaos">0</span></label>
+                            <input type="range" name="chaos" id="chaos" min="0" max="100" value="0">
                         </div>
                     </div>
 

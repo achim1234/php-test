@@ -194,9 +194,9 @@ class GlitchController
 
     private function applyGlitch(string $sourceFile, ?string &$glitchedImage, ?string &$error): void
     {
-        $rgbShift = max(0, min(50, (int)($_POST['rgb_shift'] ?? 10)));
-        $jitter = max(0, min(100, (int)($_POST['jitter'] ?? 20)));
-        $scanlines = max(0, min(50, (int)($_POST['scanlines'] ?? 10)));
+        $rgbShift = max(0, min(50, (int)($_POST['rgb_shift'] ?? 0)));
+        $jitter = max(0, min(100, (int)($_POST['jitter'] ?? 0)));
+        $scanlines = max(0, min(50, (int)($_POST['scanlines'] ?? 0)));
         $brightness = max(-100, min(100, (int)($_POST['brightness'] ?? 0)));
         $contrast = max(-100, min(100, (int)($_POST['contrast'] ?? 0)));
         $invert = ($_POST['invert'] ?? '') === '1';
@@ -214,7 +214,7 @@ class GlitchController
         if (!in_array($glitchMode, ['signal', 'datamosh', 'melt', 'mirror', 'vhs', 'shred'], true)) {
             $glitchMode = 'signal';
         }
-        $chaos = max(0, min(100, (int)($_POST['chaos'] ?? 50)));
+        $chaos = max(0, min(100, (int)($_POST['chaos'] ?? 0)));
         $redChannel = max(-100, min(100, (int)($_POST['red_channel'] ?? 0)));
         $greenChannel = max(-100, min(100, (int)($_POST['green_channel'] ?? 0)));
         $blueChannel = max(-100, min(100, (int)($_POST['blue_channel'] ?? 0)));

@@ -71,7 +71,7 @@ final class PhotoGlitcherTest extends TestCase
         foreach ($pixels as $x => $pixel) imagesetpixel($image, $x, 0, $pixel);
         $output = $this->imagePath();
 
-        self::assertTrue((new PhotoGlitcher())->applyGlitch($this->imagePath($image), $output, 0, 0, 0));
+        self::assertTrue((new PhotoGlitcher())->applyGlitch($this->imagePath($image), $output));
         $result = imagecreatefrompng($output);
         foreach ($pixels as $x => $pixel) self::assertSame($pixel, imagecolorat($result, $x, 0));
     }
