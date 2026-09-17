@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Classes\GlitchController;
+use App\Http\GlitchController;
 use PHPUnit\Framework\TestCase;
 
 final class GlitchControllerTest extends TestCase
@@ -47,7 +47,9 @@ final class GlitchControllerTest extends TestCase
 
     private function request(): array
     {
-        $data = (new GlitchController())->handleRequest();
+        /** @var GlitchController $controller */
+        $controller = require __DIR__ . '/../config/bootstrap.php';
+        $data = $controller->handleRequest();
         foreach (['sourceFile', 'glitchedImage'] as $key) {
             if ($data[$key] !== null) {
                 $this->files[] = __DIR__ . '/../public/uploads/' . basename(explode('?', $data[$key])[0]);

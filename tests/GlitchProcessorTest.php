@@ -2,10 +2,20 @@
 
 declare(strict_types=1);
 
-use Classes\PhotoGlitcher;
+use App\Enum\ChannelOperation;
+use App\Enum\ColorProcess;
+use App\Enum\DistortionMode;
+use App\Image\ChannelProcessor;
+use App\Image\ColorProcessor;
+use App\Image\DistortionProcessor;
+use App\Image\GdImageFile;
+use App\Image\GlitchOptions;
+use App\Image\GlitchProcessor;
+use App\Image\ImageMorpher;
+use App\Image\PixelTransformer;
 use PHPUnit\Framework\TestCase;
 
-final class PhotoGlitcherTest extends TestCase
+final class GlitchProcessorTest extends TestCase
 {
     /** @var string[] */
     private array $files = [];
@@ -44,6 +54,18 @@ final class PhotoGlitcherTest extends TestCase
         return $image;
     }
 
+    private function processor(): GlitchProcessor
+    {
+        $pixels = new PixelTransformer();
+
+        return new GlitchProcessor(
+            new GdImageFile(),
+            new ColorProcessor($pixels),
+            new ChannelProcessor($pixels),
+            new DistortionProcessor(),
+        );
+    }
+
     public function testRgbShiftKeepsChannelsAndDimensions(): void
     {
         $image = imagecreatetruecolor(4, 1);
@@ -51,7 +73,11 @@ final class PhotoGlitcherTest extends TestCase
         foreach ($pixels as $x => $pixel) imagesetpixel($image, $x, 0, $pixel);
         $output = $this->imagePath();
 
-        self::assertTrue((new PhotoGlitcher())->applyGlitch($this->imagePath($image), $output, 1, 0, 0));
+        self::assertTrue($this->processor()->process(
+            $this->imagePath($image),
+            $output,
+            new GlitchOptions(rgbShift: 1),
+        ));
 
         $result = imagecreatefrompng($output);
         self::assertSame(4, imagesx($result));
@@ -71,7 +97,7 @@ final class PhotoGlitcherTest extends TestCase
         foreach ($pixels as $x => $pixel) imagesetpixel($image, $x, 0, $pixel);
         $output = $this->imagePath();
 
-        self::assertTrue((new PhotoGlitcher())->applyGlitch($this->imagePath($image), $output));
+        self::assertTrue($this->processor()->process($this->imagePath($image), $output, new GlitchOptions()));
         $result = imagecreatefrompng($output);
         foreach ($pixels as $x => $pixel) self::assertSame($pixel, imagecolorat($result, $x, 0));
     }
@@ -85,7 +111,11 @@ final class PhotoGlitcherTest extends TestCase
         imagesetpixel($image, 1, 0, $green);
         $output = $this->imagePath();
 
-        self::assertTrue((new PhotoGlitcher())->applyGlitch($this->imagePath($image), $output, 1, 0, 0));
+        self::assertTrue($this->processor()->process(
+            $this->imagePath($image),
+            $output,
+            new GlitchOptions(rgbShift: 1),
+        ));
         $result = imagecreatefrompng($output);
         self::assertSame(0, imagecolorat($result, 0, 0));
         self::assertSame(0xFFFF00, imagecolorat($result, 1, 0));
@@ -94,8 +124,10 @@ final class PhotoGlitcherTest extends TestCase
     public function testScanlinesHandleImagesSmallerThanFivePixels(): void
     {
         $output = $this->imagePath();
-        self::assertTrue((new PhotoGlitcher())->applyGlitch(
-            $this->imagePath(imagecreatetruecolor(1, 1)), $output, 0, 1, 50
+        self::assertTrue($this->processor()->process(
+            $this->imagePath(imagecreatetruecolor(1, 1)),
+            $output,
+            new GlitchOptions(jitter: 1, scanlines: 50),
         ));
         self::assertSame([1, 1], array_slice(getimagesize($output), 0, 2));
     }
@@ -107,14 +139,13 @@ final class PhotoGlitcherTest extends TestCase
 
         foreach (['datamosh', 'melt', 'mirror', 'vhs', 'shred'] as $mode) {
             $output = $this->imagePath();
-            self::assertTrue((new PhotoGlitcher())->applyGlitch(
-                sourcePath: $source,
-                destPath: $output,
-                rgbShift: 0,
-                jitter: 0,
-                scanlines: 0,
-                glitchMode: $mode,
-                chaos: 100,
+            self::assertTrue($this->processor()->process(
+                $source,
+                $output,
+                new GlitchOptions(
+                    distortionMode: DistortionMode::from($mode),
+                    chaos: 100,
+                ),
             ), $mode);
             self::assertSame([32, 24], array_slice(getimagesize($output), 0, 2), $mode);
             self::assertNotSame($sourceHash, md5_file($output), $mode);
@@ -128,14 +159,10 @@ final class PhotoGlitcherTest extends TestCase
 
         foreach (['neon', 'solarize', 'thermal', 'toxic', 'posterize'] as $filter) {
             $output = $this->imagePath();
-            self::assertTrue((new PhotoGlitcher())->applyGlitch(
-                sourcePath: $source,
-                destPath: $output,
-                rgbShift: 0,
-                jitter: 0,
-                scanlines: 0,
-                presetFilter: $filter,
-                chaos: 0,
+            self::assertTrue($this->processor()->process(
+                $source,
+                $output,
+                new GlitchOptions(colorProcess: ColorProcess::from($filter)),
             ), $filter);
             self::assertNotSame($sourceHash, md5_file($output), $filter);
         }
@@ -151,16 +178,14 @@ final class PhotoGlitcherTest extends TestCase
         imagesetpixel($image, 2, 0, 0x40FFFFFF);
         $output = $this->imagePath();
 
-        self::assertTrue((new PhotoGlitcher())->applyGlitch(
-            sourcePath: $this->imagePath($image),
-            destPath: $output,
-            rgbShift: 0,
-            jitter: 0,
-            scanlines: 0,
-            presetFilter: 'duotone',
-            chaos: 0,
-            duotoneShadow: '#120034',
-            duotoneHighlight: '#f0e050',
+        self::assertTrue($this->processor()->process(
+            $this->imagePath($image),
+            $output,
+            new GlitchOptions(
+                colorProcess: ColorProcess::Duotone,
+                duotoneShadow: '#120034',
+                duotoneHighlight: '#f0e050',
+            ),
         ));
 
         $result = imagecreatefrompng($output);
@@ -193,14 +218,10 @@ final class PhotoGlitcherTest extends TestCase
 
         foreach ($expectedColors as $filter => $expectedColor) {
             $output = $this->imagePath();
-            self::assertTrue((new PhotoGlitcher())->applyGlitch(
-                sourcePath: $source,
-                destPath: $output,
-                rgbShift: 0,
-                jitter: 0,
-                scanlines: 0,
-                chaos: 0,
-                channelFilter: $filter,
+            self::assertTrue($this->processor()->process(
+                $source,
+                $output,
+                new GlitchOptions(channelOperation: ChannelOperation::from($filter)),
             ), $filter);
             self::assertSame($expectedColor, imagecolorat(imagecreatefrompng($output), 0, 0), $filter);
         }
@@ -212,16 +233,14 @@ final class PhotoGlitcherTest extends TestCase
         imagesetpixel($image, 0, 0, 0x204060);
         $output = $this->imagePath();
 
-        self::assertTrue((new PhotoGlitcher())->applyGlitch(
-            sourcePath: $this->imagePath($image),
-            destPath: $output,
-            rgbShift: 0,
-            jitter: 0,
-            scanlines: 0,
-            chaos: 0,
-            redChannel: 100,
-            greenChannel: -100,
-            blueChannel: 10,
+        self::assertTrue($this->processor()->process(
+            $this->imagePath($image),
+            $output,
+            new GlitchOptions(
+                redChannel: 100,
+                greenChannel: -100,
+                blueChannel: 10,
+            ),
         ));
         self::assertSame(0xFF007A, imagecolorat(imagecreatefrompng($output), 0, 0));
     }
@@ -236,7 +255,10 @@ final class PhotoGlitcherTest extends TestCase
         imagesetpixel($second, 0, 1, 0xFFFFFF);
         $output = $this->imagePath();
 
-        self::assertTrue((new PhotoGlitcher())->morphImages([$this->imagePath($first), $this->imagePath($second)], $output));
+        self::assertTrue((new ImageMorpher(new GdImageFile()))->morph(
+            [$this->imagePath($first), $this->imagePath($second)],
+            $output,
+        ));
         $result = imagecreatefrompng($output);
         self::assertSame([2, 2], array_slice(getimagesize($output), 0, 2));
         self::assertSame(0x7F007F, imagecolorat($result, 0, 0));

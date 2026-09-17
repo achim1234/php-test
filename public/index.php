@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use Classes\GlitchController;
-
-$controller = new GlitchController();
+/** @var App\Http\GlitchController $controller */
+$controller = require __DIR__ . '/../config/bootstrap.php';
 $data = $controller->handleRequest();
 
 $glitchedImage = $data['glitchedImage'];
