@@ -36,7 +36,7 @@ function editor(source = 'original.png') {
     const ids = ['lightbox', 'lightbox-img', 'lightbox-caption', 'library_image_input', 'glitchForm',
         'select-lib-btn', 'glitched-preview', 'download-link', 'source_file', 'photo', 'submit',
         'save-output-btn', 'morph-btn', 'editor-status', 'result-container', 'placeholder',
-        'random-glitch-btn', 'output-grid', 'library-grid', 'val_rgb_shift', 'preset_filter',
+        'random-glitch-btn', 'achims-special-btn', 'output-grid', 'library-grid', 'val_rgb_shift', 'preset_filter',
         'duotone-palette', 'duotone-palette-status', 'duotone_shadow', 'duotone_highlight'];
     const elements = Object.fromEntries(ids.map(id => [id, new Element(id)]));
     const range = elements.rgb_shift = new Element('rgb_shift', 'range');
@@ -148,6 +148,19 @@ test('randomizing effects replaces a pending slider update', async () => {
     assert.equal(app.requests[0].body.get('rgb_shift'), String(app.elements.rgb_shift.value));
     await app.reply(0, result('uploads/random.png'));
     assert.equal(app.elements['save-output-btn'].disabled, false);
+});
+
+test('Achims special button selects and applies its dedicated filter', async () => {
+    const app = editor();
+
+    app.click('achims-special-btn');
+
+    assert.equal(app.elements.preset_filter.value, 'achims_special');
+    app.tick();
+    assert.equal(app.requests.length, 1);
+    assert.equal(app.requests[0].body.get('preset_filter'), 'achims_special');
+    await app.reply(0, result('uploads/achims-special.png'));
+    assert.equal(app.elements['glitched-preview'].getAttribute('src'), 'uploads/achims-special.png');
 });
 
 test('changing a duotone color activates the filter and sends both palette colors', async () => {

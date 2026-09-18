@@ -16,5 +16,8 @@ enum ColorProcess: string
     case Thermal = 'thermal';
     case Toxic = 'toxic';
     case Posterize = 'posterize';
+    case GameBoy = 'gameboy';
+    case ChromaticHalftone = 'chromatic_halftone';
+    case AchimsSpecial = 'achims_special';
     case Duotone = 'duotone';
 }

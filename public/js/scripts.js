@@ -321,6 +321,12 @@ document.addEventListener('DOMContentLoaded', () => {
         scheduleRender();
     });
 
+    document.getElementById('achims-special-btn').addEventListener('click', () => {
+        presetFilter.value = 'achims_special';
+        updateDuotonePalette();
+        scheduleRender();
+    });
+
     glitchForm.addEventListener('submit', event => {
         event.preventDefault();
         if (active || pendingRender) return;

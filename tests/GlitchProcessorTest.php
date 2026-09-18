@@ -157,7 +157,7 @@ final class GlitchProcessorTest extends TestCase
         $source = $this->imagePath($this->patternedImage(12, 10));
         $sourceHash = md5_file($source);
 
-        foreach (['neon', 'solarize', 'thermal', 'toxic', 'posterize'] as $filter) {
+        foreach (['neon', 'solarize', 'thermal', 'toxic', 'posterize', 'gameboy', 'chromatic_halftone', 'achims_special'] as $filter) {
             $output = $this->imagePath();
             self::assertTrue($this->processor()->process(
                 $source,
@@ -165,6 +165,99 @@ final class GlitchProcessorTest extends TestCase
                 new GlitchOptions(colorProcess: ColorProcess::from($filter)),
             ), $filter);
             self::assertNotSame($sourceHash, md5_file($output), $filter);
+        }
+    }
+
+    public function testAchimsSpecialCreatesDitheredNeonCollageAndPreservesAlpha(): void
+    {
+        $image = $this->patternedImage(32, 24);
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
+        imagesetpixel($image, 0, 0, 0x40102030);
+        $output = $this->imagePath();
+
+        self::assertTrue($this->processor()->process(
+            $this->imagePath($image),
+            $output,
+            new GlitchOptions(colorProcess: ColorProcess::AchimsSpecial),
+        ));
+
+        $result = imagecreatefrompng($output);
+        $colors = [];
+        for ($y = 0; $y < 24; $y++) {
+            for ($x = 0; $x < 32; $x++) {
+                $color = imagecolorat($result, $x, $y);
+                $colors[$color & 0xFFFFFF] = true;
+            }
+        }
+
+        self::assertSame(0x40000000, imagecolorat($result, 0, 0) & 0x7F000000);
+        self::assertGreaterThanOrEqual(8, count($colors));
+    }
+
+    public function testChromaticHalftoneSeparatesOffsetCmyDotsAndPreservesAlpha(): void
+    {
+        $image = imagecreatetruecolor(8, 8);
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
+        imagefill($image, 0, 0, 0x40808080);
+        $output = $this->imagePath();
+
+        self::assertTrue($this->processor()->process(
+            $this->imagePath($image),
+            $output,
+            new GlitchOptions(colorProcess: ColorProcess::ChromaticHalftone),
+        ));
+
+        $result = imagecreatefrompng($output);
+        $colors = [];
+        for ($y = 0; $y < 8; $y++) {
+            for ($x = 0; $x < 8; $x++) {
+                $color = imagecolorat($result, $x, $y);
+                self::assertSame(0x40000000, $color & 0x7F000000);
+                self::assertContains($color & 0xFFFFFF, [
+                    0xFFFFFF,
+                    0x00FFFF,
+                    0xFF00FF,
+                    0xFFFF00,
+                    0x0000FF,
+                    0x00FF00,
+                    0xFF0000,
+                    0x000000,
+                ]);
+                $colors[$color & 0xFFFFFF] = true;
+            }
+        }
+
+        self::assertGreaterThanOrEqual(4, count($colors));
+    }
+
+    public function testGameBoyDitherUsesBayerPatternAndLimitedPalette(): void
+    {
+        $image = imagecreatetruecolor(4, 4);
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
+        imagefill($image, 0, 0, 0x40808080);
+        $output = $this->imagePath();
+
+        self::assertTrue($this->processor()->process(
+            $this->imagePath($image),
+            $output,
+            new GlitchOptions(colorProcess: ColorProcess::GameBoy),
+        ));
+
+        $result = imagecreatefrompng($output);
+        $expected = [
+            [0x408BAC0F, 0x40306230, 0x408BAC0F, 0x40306230],
+            [0x40306230, 0x408BAC0F, 0x40306230, 0x408BAC0F],
+            [0x408BAC0F, 0x40306230, 0x408BAC0F, 0x40306230],
+            [0x40306230, 0x408BAC0F, 0x40306230, 0x408BAC0F],
+        ];
+
+        foreach ($expected as $y => $row) {
+            foreach ($row as $x => $color) {
+                self::assertSame($color, imagecolorat($result, $x, $y));
+            }
         }
     }
 

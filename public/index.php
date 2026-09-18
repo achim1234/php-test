@@ -185,6 +185,9 @@ $sourceFile = $data['sourceFile'];
                                 <option value="thermal">Thermal Map</option>
                                 <option value="toxic">Toxic Chrome</option>
                                 <option value="posterize">Posterize</option>
+                                <option value="gameboy">Ordered Dither / Game Boy</option>
+                                <option value="chromatic_halftone">Chromatic Halftone</option>
+                                <option value="achims_special">Achims Special Filter</option>
                                 <option value="duotone">Duotone Gradient</option>
                             </select>
                         </div>
@@ -221,6 +224,7 @@ $sourceFile = $data['sourceFile'];
                     <div class="button-group">
                         <button type="submit"><span>Glitch image</span><b aria-hidden="true">↗</b></button>
                         <button type="button" id="random-glitch-btn" class="secondary-button">Surprise me</button>
+                        <button type="button" id="achims-special-btn" class="special-filter-button">Achims Speacial FIlter</button>
                     </div>
                 </form>
                 </section>

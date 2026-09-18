@@ -504,6 +504,22 @@ button[type='submit']:hover {
 .secondary-button { justify-content: center; border-color: rgba(255, 255, 255, 0.35); color: var(--white); }
 .secondary-button:hover { border-color: var(--violet); background: var(--violet); }
 
+.special-filter-button {
+    grid-column: 1 / -1;
+    justify-content: center;
+    border-color: var(--coral);
+    background: linear-gradient(110deg, var(--coral), var(--violet) 48%, var(--acid));
+    color: var(--ink);
+    box-shadow: 4px 4px 0 var(--white);
+}
+
+.special-filter-button:hover {
+    border-color: var(--white);
+    background: linear-gradient(290deg, var(--coral), var(--violet) 48%, var(--acid));
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 var(--white);
+}
+
 .result-section {
     position: relative;
     display: flex;

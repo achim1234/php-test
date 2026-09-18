@@ -105,6 +105,42 @@ final class GlitchControllerTest extends TestCase
         self::assertSame(0x123456, $this->resultPixel($data));
     }
 
+    public function testGameBoyDitherIsAppliedThroughTheController(): void
+    {
+        $filename = $this->fixture('lib', 0xFFFFFF);
+        $_POST['source_file'] = $filename;
+        $_POST['preset_filter'] = 'gameboy';
+
+        $data = $this->request();
+
+        self::assertNull($data['error']);
+        self::assertSame(0x9BBC0F, $this->resultPixel($data));
+    }
+
+    public function testChromaticHalftoneIsAppliedThroughTheController(): void
+    {
+        $filename = $this->fixture('lib', 0x808080);
+        $_POST['source_file'] = $filename;
+        $_POST['preset_filter'] = 'chromatic_halftone';
+
+        $data = $this->request();
+
+        self::assertNull($data['error']);
+        self::assertSame(0xFFFF00, $this->resultPixel($data));
+    }
+
+    public function testAchimsSpecialIsAppliedThroughTheController(): void
+    {
+        $filename = $this->fixture('lib', 0x204060);
+        $_POST['source_file'] = $filename;
+        $_POST['preset_filter'] = 'achims_special';
+
+        $data = $this->request();
+
+        self::assertNull($data['error']);
+        self::assertSame(0xE7FF3F, $this->resultPixel($data));
+    }
+
     public function testLibrarySelectionDistinguishesSameNamedFiles(): void
     {
         $filename = $this->fixture('lib', 0xFF0000);

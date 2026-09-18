@@ -36,6 +36,9 @@ final readonly class ColorProcessor
             ColorProcess::Thermal => $this->applyThermalMap($image),
             ColorProcess::Toxic => $this->applyToxicChrome($image),
             ColorProcess::Posterize => $this->applyPosterize($image),
+            ColorProcess::GameBoy => $this->applyGameBoyDither($image),
+            ColorProcess::ChromaticHalftone => $this->applyChromaticHalftone($image),
+            ColorProcess::AchimsSpecial => $this->applyAchimsSpecial($image),
             ColorProcess::Duotone => $this->applyDuotone($image, $options->duotoneShadow, $options->duotoneHighlight),
             ColorProcess::None => null,
         };
@@ -114,6 +117,122 @@ final readonly class ColorProcessor
             min(255, intdiv($green, 64) * 85),
             min(255, intdiv($blue, 64) * 85),
         ]);
+    }
+
+    private function applyGameBoyDither(GdImage $image): void
+    {
+        $bayerMatrix = [
+            [0, 8, 2, 10],
+            [12, 4, 14, 6],
+            [3, 11, 1, 9],
+            [15, 7, 13, 5],
+        ];
+        $palette = [
+            [15, 56, 15],
+            [48, 98, 48],
+            [139, 172, 15],
+            [155, 188, 15],
+        ];
+
+        $this->pixels->transformWithPosition(
+            $image,
+            static function (int $red, int $green, int $blue, int $x, int $y) use ($bayerMatrix, $palette): array {
+                $luminance = (($red * 299) + ($green * 587) + ($blue * 114)) / 1000;
+                $palettePosition = ($luminance / 255) * (count($palette) - 1);
+                $lowerIndex = (int)floor($palettePosition);
+                $threshold = ($bayerMatrix[$y % 4][$x % 4] + 0.5) / 16;
+                $paletteIndex = min(
+                    count($palette) - 1,
+                    $lowerIndex + (($palettePosition - $lowerIndex) > $threshold ? 1 : 0),
+                );
+
+                return $palette[$paletteIndex];
+            },
+        );
+    }
+
+    private function applyChromaticHalftone(GdImage $image): void
+    {
+        $cellSize = max(4, min(12, (int)round(min(imagesx($image), imagesy($image)) / 120)));
+        $maximumRadiusSquared = ($cellSize * $cellSize) / 2;
+        $offsets = [
+            [0, 0],
+            [(int)round($cellSize / 3), (int)round($cellSize / 6)],
+            [(int)round($cellSize / 6), (int)round($cellSize / 2)],
+        ];
+
+        $this->pixels->transformWithPosition(
+            $image,
+            static function (int $red, int $green, int $blue, int $x, int $y) use (
+                $cellSize,
+                $maximumRadiusSquared,
+                $offsets,
+            ): array {
+                $center = ($cellSize - 1) / 2;
+                $inkAmounts = [(255 - $red) / 255, (255 - $green) / 255, (255 - $blue) / 255];
+                $result = [255, 255, 255];
+
+                foreach ($inkAmounts as $channel => $inkAmount) {
+                    [$offsetX, $offsetY] = $offsets[$channel];
+                    $gridX = (($x - $offsetX) % $cellSize + $cellSize) % $cellSize;
+                    $gridY = (($y - $offsetY) % $cellSize + $cellSize) % $cellSize;
+                    $distanceSquared = (($gridX - $center) ** 2) + (($gridY - $center) ** 2);
+
+                    if ($distanceSquared < $inkAmount * $maximumRadiusSquared) {
+                        $result[$channel] = 0;
+                    }
+                }
+
+                return $result;
+            },
+        );
+    }
+
+    private function applyAchimsSpecial(GdImage $image): void
+    {
+        $bayerMatrix = [
+            [0, 8, 2, 10],
+            [12, 4, 14, 6],
+            [3, 11, 1, 9],
+            [15, 7, 13, 5],
+        ];
+        $palettes = [
+            [[18, 8, 38], [255, 43, 111], [255, 112, 35], [231, 255, 63]],
+            [[9, 21, 45], [94, 54, 255], [0, 229, 178], [210, 255, 76]],
+            [[25, 5, 48], [171, 45, 255], [20, 211, 255], [255, 73, 185]],
+        ];
+        $blockSize = max(8, min(30, (int)round(min(imagesx($image), imagesy($image)) / 30)));
+        $tearWidth = max(2, intdiv($blockSize, 4));
+
+        $this->pixels->transformWithPosition(
+            $image,
+            static function (int $red, int $green, int $blue, int $x, int $y) use (
+                $bayerMatrix,
+                $palettes,
+                $blockSize,
+                $tearWidth,
+            ): array {
+                $luminance = (($red * 299) + ($green * 587) + ($blue * 114)) / 1000;
+                $dither = ($bayerMatrix[$y % 4][$x % 4] - 7.5) * 4;
+                $level = min(3, max(0, intdiv((int)round($luminance + $dither), 64)));
+
+                $dominantChannel = match (max($red, $green, $blue)) {
+                    $red => 0,
+                    $green => 1,
+                    default => 2,
+                };
+                $collageTile = (intdiv($x, $blockSize) + intdiv($y, $blockSize)) % 3;
+                $paletteIndex = ($dominantChannel + $collageTile) % 3;
+
+                $tearPosition = ($x + (2 * $y)) % ($blockSize * 3);
+                if ($tearPosition < $tearWidth) {
+                    $level = 3 - $level;
+                    $paletteIndex = ($paletteIndex + 1) % 3;
+                }
+
+                return $palettes[$paletteIndex][$level];
+            },
+        );
     }
 
     private function applyDuotone(GdImage $image, string $shadowColor, string $highlightColor): void
