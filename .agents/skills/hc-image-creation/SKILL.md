@@ -404,8 +404,8 @@ Hashtags: #TagOne #TagTwo #TagThree #TagFour #TagFive
 
 ### Writing direction
 
-- Match the user's requested language.
-- Otherwise use the language of their latest message.
+- Write post_text.txt in English by default.
+- Use another language only when the user explicitly requests it for the post.
 - Keep the title short and memorable.
 - Emphasize material, silhouette, atmosphere or transformation.
 - Describe AI-created concepts honestly.
