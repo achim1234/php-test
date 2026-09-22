@@ -1,4 +1,3 @@
-```markdown
 ---
 name: industrial-couture
 description: Create photorealistic avant-garde fashion posts featuring sculptural garments, aluminium, molded plastic and other unconventional materials. Generate five consistent images, assemble an overview, and save the images with a title, teaser and five hashtags. Use for couture editorials, mannequin presentations, location variations and staged material transformations.
@@ -24,7 +23,7 @@ Use a different format or quantity when explicitly requested.
 
 Save the complete post under:
 
-../../../public/posts/post_{timestamp}/
+public/posts/post_{timestamp}/ (relative to the project root)
 
 ## Visual direction
 
@@ -315,11 +314,17 @@ Build image prompts in this order:
 
 Save each post under:
 
-../../../public/posts/post_{timestamp}/
+public/posts/post_{timestamp}/ (relative to the project root)
 
-Resolve the relative path against the working directory at the start
-of the task. Use that resolved location consistently, even if the
-working directory changes later.
+Resolve the project root from this skill's directory: ../../.. from
+.agents/skills/hc-image-creation/. Resolve public/posts against that
+project root, not against the current working directory.
+For this project, the output directory is:
+
+/home/achim/development/php/php-test/public/posts/
+
+Use that resolved location consistently, even if the working directory
+changes later.
 
 Format the timestamp as:
 
@@ -329,7 +334,7 @@ Use the user's timezone when known; otherwise use UTC.
 
 Example folder:
 
-../../../public/posts/post_20260922_143025/
+/home/achim/development/php/php-test/public/posts/post_20260922_143025/
 
 Create destination directories if needed.
 Never overwrite an existing post folder.
@@ -446,4 +451,3 @@ Provide the saved post folder location and supported links to the
 overview and post_text.txt. Include individual image links when useful.
 
 State any incomplete deliverables plainly.
-```
