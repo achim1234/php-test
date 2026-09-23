@@ -277,8 +277,29 @@ $sourceFile = $data['sourceFile'];
                 <?php $posts = $controller->getPosts(); ?>
                 <div class="post-toolbar">
                     <div class="select-control">
-                        <label for="post-select">Select a post</label>
-                        <select id="post-select" aria-describedby="post-status">
+                        <label for="post-picker-trigger">Select a post</label>
+                        <div class="post-picker" id="post-picker">
+                            <button type="button" id="post-picker-trigger" class="post-picker-trigger" aria-haspopup="listbox" aria-expanded="false">
+                                <img id="post-picker-current-image" class="post-picker-current-image" alt="" hidden>
+                                <span id="post-picker-current" class="post-picker-current">Choose a post…</span>
+                                <span class="post-picker-chevron" aria-hidden="true">⌄</span>
+                            </button>
+                            <div id="post-picker-menu" class="post-picker-menu" role="listbox" aria-label="Posts">
+                                <?php if ($posts === []): ?>
+                                    <p class="post-picker-empty">No posts available.</p>
+                                <?php else: foreach ($posts as $post): ?>
+                                    <button type="button" class="post-picker-option" role="option" aria-selected="false" data-post-id="<?php echo htmlspecialchars($post['id']); ?>">
+                                        <img src="/<?php echo htmlspecialchars($post['images'][0]); ?>" alt="" loading="lazy" decoding="async">
+                                        <span class="post-picker-copy">
+                                            <strong><?php echo htmlspecialchars($post['title']); ?></strong>
+                                            <small><?php echo htmlspecialchars($post['id']); ?></small>
+                                        </span>
+                                        <?php if (str_contains($post['id'], '_glitched_')): ?><em>glitched</em><?php endif; ?>
+                                    </button>
+                                <?php endforeach; endif; ?>
+                            </div>
+                        </div>
+                        <select id="post-select" class="post-select-native" aria-describedby="post-status" tabindex="-1" aria-hidden="true">
                             <option value="">Choose a post…</option>
                             <?php foreach ($posts as $post): ?>
                                 <option value="<?php echo htmlspecialchars($post['id']); ?>"><?php echo htmlspecialchars($post['title'] . ' — ' . $post['id']); ?></option>

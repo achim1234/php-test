@@ -129,6 +129,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const posts = JSON.parse(document.getElementById('post-data').textContent);
     const postEditor = document.getElementById('post-editor-collage');
     const postEditorGrid = document.getElementById('post-editor-grid');
+    const postPicker = document.getElementById('post-picker');
+    const postPickerTrigger = document.getElementById('post-picker-trigger');
+    const postPickerCurrent = document.getElementById('post-picker-current');
+    const postPickerCurrentImage = document.getElementById('post-picker-current-image');
+    const postPickerMenu = document.getElementById('post-picker-menu');
     let batchActive = false;
     let pendingPostPreview = false;
     let postPreviewTimeout = null;
@@ -152,6 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         morphButton.disabled = busy;
         postSelect.disabled = busy;
         postButton.disabled = busy || !postSelect.value || !postPreviewReady;
+        if (postPickerTrigger) postPickerTrigger.disabled = busy;
         controls.forEach(control => { control.disabled = batchActive; });
         document.getElementById('random-glitch-btn').disabled = batchActive;
         document.getElementById('achims-special-btn').disabled = batchActive;
@@ -201,6 +207,84 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function updatePostPicker(postId) {
+        if (!postPickerCurrent || !postPickerCurrentImage) return;
+        const selected = posts.find(post => post.id === postId);
+        postPickerCurrent.textContent = selected ? selected.title + ' — ' + selected.id : 'Choose a post…';
+        if (selected?.images?.[0]) {
+            postPickerCurrentImage.src = '/' + selected.images[0];
+            postPickerCurrentImage.hidden = false;
+        } else {
+            postPickerCurrentImage.hidden = true;
+            postPickerCurrentImage.removeAttribute('src');
+        }
+        postPickerMenu?.querySelectorAll('.post-picker-option').forEach(option => {
+            option.setAttribute('aria-selected', String(option.dataset.postId === postId));
+        });
+    }
+
+    function addPostPickerOption(post) {
+        if (!postPickerMenu || !post.images?.[0]) return;
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'post-picker-option';
+        option.setAttribute('role', 'option');
+        option.setAttribute('aria-selected', 'false');
+        option.dataset.postId = post.id;
+        const image = document.createElement('img');
+        image.src = '/' + post.images[0];
+        image.alt = '';
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        const copy = document.createElement('span');
+        copy.className = 'post-picker-copy';
+        const title = document.createElement('strong');
+        title.textContent = post.title;
+        const id = document.createElement('small');
+        id.textContent = post.id;
+        copy.append(title, id);
+        option.append(image, copy);
+        if (post.id.includes('_glitched_')) {
+            const badge = document.createElement('em');
+            badge.textContent = 'glitched';
+            option.append(badge);
+        }
+        option.addEventListener('click', () => {
+            postSelect.value = post.id;
+            postSelect.dispatchEvent(new Event('change'));
+            postPicker?.classList.remove('is-open');
+            postPickerTrigger?.setAttribute('aria-expanded', 'false');
+        });
+        postPickerMenu.append(option);
+    }
+
+    postPickerTrigger?.addEventListener('click', () => {
+        if (postPickerTrigger.disabled) return;
+        const isOpen = postPicker?.classList.toggle('is-open') ?? false;
+        postPickerTrigger.setAttribute('aria-expanded', String(isOpen));
+    });
+    postPickerMenu?.querySelectorAll('.post-picker-option').forEach(option => {
+        option.addEventListener('click', () => {
+            postSelect.value = option.dataset.postId;
+            postSelect.dispatchEvent(new Event('change'));
+            postPicker?.classList.remove('is-open');
+            postPickerTrigger?.setAttribute('aria-expanded', 'false');
+        });
+    });
+    document.addEventListener('click', event => {
+        if (postPicker && !postPicker.contains(event.target)) {
+            postPicker.classList.remove('is-open');
+            postPickerTrigger?.setAttribute('aria-expanded', 'false');
+        }
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && postPicker?.classList.contains('is-open')) {
+            postPicker.classList.remove('is-open');
+            postPickerTrigger?.setAttribute('aria-expanded', 'false');
+            postPickerTrigger?.focus();
+        }
+    });
+
     document.addEventListener('clear-post-selection', () => {
         selectedPostId = '';
         postPreviewReady = false;
@@ -209,6 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         postPreviewTimeout = null;
         postEditor.hidden = true;
         postSelect.value = '';
+        updatePostPicker('');
     });
 
     postSelect.addEventListener('change', () => {
@@ -216,6 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('post-result').hidden = true;
         postEditorGrid.replaceChildren();
         selectedPostId = selected?.id ?? '';
+        updatePostPicker(selectedPostId);
         postPreviewReady = false;
         sourceFileInput.value = '';
         resultCurrent = false;
@@ -260,11 +346,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.post.caption) captionLink.href = data.post.caption;
             result.hidden = false;
             postPreviewReady = false;
-            posts.unshift(data.post);
+            posts.push(data.post);
             const option = document.createElement('option');
             option.value = data.post.id;
             option.textContent = data.post.title + ' — ' + data.post.id;
             postSelect.append(option);
+            addPostPickerOption(data.post);
             postStatus.textContent = 'Saved a new post with all ' + data.post.images.length + ' glitched images. Your originals are unchanged.';
         } catch (error) {
             postStatus.textContent = error instanceof SyntaxError ? 'The server returned an invalid response. Please try again.' : error.message;

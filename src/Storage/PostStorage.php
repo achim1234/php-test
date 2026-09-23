@@ -21,6 +21,16 @@ final readonly class PostStorage
             }
         }
 
+        usort($posts, static function (array $first, array $second): int {
+            $firstIsGlitched = str_contains($first['id'], '_glitched_');
+            $secondIsGlitched = str_contains($second['id'], '_glitched_');
+            if ($firstIsGlitched !== $secondIsGlitched) {
+                return $firstIsGlitched <=> $secondIsGlitched;
+            }
+
+            return $second['id'] <=> $first['id'];
+        });
+
         return $posts;
     }
 

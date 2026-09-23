@@ -91,6 +91,9 @@ final class PostGlitchTest extends TestCase
         $second = $this->controller->handleRequest();
         self::assertNotSame($saved['id'], $second['postResult']['id']);
         self::assertCount(3, $this->posts->posts());
+        $catalog = $this->posts->posts();
+        self::assertSame('post_example', $catalog[0]['id']);
+        self::assertTrue(str_contains($catalog[2]['id'], '_glitched_'));
     }
 
     public function testPreviewProcessesTheCollageWithoutCreatingAPost(): void
