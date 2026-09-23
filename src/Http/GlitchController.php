@@ -8,6 +8,8 @@ use App\Image\GlitchOptionsFactory;
 use App\Image\GlitchProcessor;
 use App\Image\ImageMorpher;
 use App\Storage\ImageStorage;
+use App\Storage\PostStorage;
+use RuntimeException;
 
 final readonly class GlitchController
 {
@@ -16,10 +18,11 @@ final readonly class GlitchController
         private GlitchProcessor $glitchProcessor,
         private ImageMorpher $imageMorpher,
         private GlitchOptionsFactory $optionsFactory,
+        private PostStorage $posts,
     ) {}
 
     /**
-     * @return array{glitchedImage: ?string, error: ?string, sourceFile: ?string}
+     * @return array{glitchedImage: ?string, error: ?string, sourceFile: ?string, postResult?: ?array}
      */
     public function handleRequest(): array
     {
@@ -32,6 +35,32 @@ final readonly class GlitchController
         }
 
         $action = $_POST['action'] ?? '';
+        if ($action === 'preview_post') {
+            $postResult = null;
+            try {
+                $postResult = $this->previewPost(is_string($_POST['post_id'] ?? null) ? $_POST['post_id'] : '');
+            } catch (RuntimeException $exception) {
+                $error = $exception->getMessage();
+            }
+            if ($this->isAjax()) {
+                $this->sendJson(['success' => $error === null, 'post' => $postResult, 'error' => $error]);
+            }
+
+            return compact('glitchedImage', 'error', 'sourceFile', 'postResult');
+        }
+        if ($action === 'glitch_post') {
+            $postResult = null;
+            try {
+                $postResult = $this->glitchPost(is_string($_POST['post_id'] ?? null) ? $_POST['post_id'] : '');
+            } catch (RuntimeException $exception) {
+                $error = $exception->getMessage();
+            }
+            if ($this->isAjax()) {
+                $this->sendJson(['success' => $error === null, 'post' => $postResult, 'error' => $error]);
+            }
+
+            return compact('glitchedImage', 'error', 'sourceFile', 'postResult');
+        }
         if ($action === 'save_to_output') {
             $this->handleSaveToOutput();
         }
@@ -105,6 +134,67 @@ final readonly class GlitchController
         }
 
         $this->sendJson(['success' => false, 'error' => 'Failed to save to output library.']);
+    }
+
+    /** @return array{id: string, title: string, images: list<string>, caption: ?string} */
+    private function glitchPost(string $id): array
+    {
+        $post = $this->posts->find($id);
+        if ($post === null) {
+            throw new RuntimeException('Post not found or it contains no supported images.');
+        }
+        $options = $this->optionsFactory->fromArray($_POST);
+        $draft = $this->posts->createDraft();
+        try {
+            foreach ($post['images'] as $image) {
+                // Refresh the time budget for each full-resolution image in the batch.
+                set_time_limit(60);
+                $filename = basename($image);
+                $source = $this->posts->imagePath($id, $filename);
+                if ($source === null || !$this->glitchProcessor->process($source, $draft['path'] . '/' . $filename, $options)) {
+                    throw new RuntimeException('Unable to process ' . $filename . '. No glitched post was saved.');
+                }
+            }
+            $this->posts->copyCaption($id, $draft['path']);
+            $this->posts->publish($draft);
+        } finally {
+            if (is_dir($draft['path'])) {
+                $this->posts->discardDraft($draft['path']);
+            }
+        }
+
+        return $this->posts->find($draft['id']);
+    }
+
+    /** @return array{id: string, title: string, images: list<string>, caption: ?string} */
+    private function previewPost(string $id): array
+    {
+        $post = $this->posts->find($id);
+        if ($post === null) {
+            throw new RuntimeException('Post not found or it contains no supported images.');
+        }
+        $options = $this->optionsFactory->fromArray($_POST);
+        $this->storage->clearPostPreviews();
+        $preview = $post;
+        $preview['images'] = [];
+        foreach ($post['images'] as $image) {
+            set_time_limit(60);
+            $filename = basename($image);
+            $source = $this->posts->imagePath($id, $filename);
+            $destination = $this->storage->createPostPreviewDestination($filename);
+            if ($source === null || !$this->glitchProcessor->process($source, $destination['path'], $options)) {
+                throw new RuntimeException('Unable to preview ' . $filename . '.');
+            }
+            $preview['images'][] = 'uploads/' . $destination['filename'] . '?v=' . bin2hex(random_bytes(6));
+        }
+
+        return $preview;
+    }
+
+    /** @return list<array{id: string, title: string, images: list<string>, caption: ?string}> */
+    public function getPosts(): array
+    {
+        return $this->posts->posts();
     }
 
     private function handleMorph(?string &$glitchedImage, ?string &$error): void

@@ -7,6 +7,7 @@ let currentLibFile = '';
 let libraryImages = [];
 let currentIndex = -1;
 let selectedImages = new Set();
+let selectedPostId = '';
 
 function handleItemClick(element, src, filename) {
     const mode = document.querySelector('input[name="interaction-mode"]:checked').value;
@@ -81,6 +82,11 @@ function closeLightbox() {
 const selectLibBtn = document.getElementById('select-lib-btn');
 if (selectLibBtn) {
     selectLibBtn.addEventListener('click', () => {
+        document.dispatchEvent(new Event('clear-post-selection'));
+        selectedPostId = '';
+        const postSelect = document.getElementById('post-select');
+        if (postSelect) postSelect.value = '';
+        document.getElementById('post-editor-collage')?.setAttribute('hidden', '');
         libImageInput.value = currentLibFile;
         // Clear file input to prioritize library selection
         document.getElementById('photo').value = '';
@@ -117,6 +123,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const presetFilter = document.getElementById('preset_filter');
     const duotonePalette = document.getElementById('duotone-palette');
     const duotonePaletteStatus = document.getElementById('duotone-palette-status');
+    const postSelect = document.getElementById('post-select');
+    const postButton = document.getElementById('glitch-post-btn');
+    const postStatus = document.getElementById('post-status');
+    const posts = JSON.parse(document.getElementById('post-data').textContent);
+    const postEditor = document.getElementById('post-editor-collage');
+    const postEditorGrid = document.getElementById('post-editor-grid');
+    let batchActive = false;
+    let pendingPostPreview = false;
+    let postPreviewTimeout = null;
+    let postPreviewReady = false;
     let active = false;
     let pendingRender = false;
     let timeout = null;
@@ -134,6 +150,11 @@ document.addEventListener('DOMContentLoaded', () => {
         submitButton.disabled = busy;
         selectLibBtn.disabled = busy;
         morphButton.disabled = busy;
+        postSelect.disabled = busy;
+        postButton.disabled = busy || !postSelect.value || !postPreviewReady;
+        controls.forEach(control => { control.disabled = batchActive; });
+        document.getElementById('random-glitch-btn').disabled = batchActive;
+        document.getElementById('achims-special-btn').disabled = batchActive;
         saveButton.disabled = busy || !resultCurrent;
         downloadLink.setAttribute('aria-disabled', String(busy || !resultCurrent));
         document.getElementById('result-container').setAttribute('aria-busy', String(busy));
@@ -152,6 +173,145 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await response.json();
         if (!data.success) throw new Error(data.error || 'Unable to process this image.');
         return data;
+    }
+
+    function showPostImages(post, containerId, downloadable = false) {
+        const container = document.getElementById(containerId);
+        container.replaceChildren();
+        post.images.forEach(src => {
+            const filename = src.split('/').pop();
+            const figure = document.createElement('figure');
+            figure.className = 'post-image';
+            const image = document.createElement('img');
+            image.src = src;
+            image.alt = filename.startsWith('post_0.') ? 'Post overview' : filename;
+            image.loading = 'lazy';
+            const caption = document.createElement('figcaption');
+            const link = document.createElement('a');
+            link.href = src;
+            if (downloadable) link.download = filename;
+            else {
+                link.target = '_blank';
+                link.rel = 'noopener';
+            }
+            link.textContent = (downloadable ? 'Download ' : 'View ') + filename;
+            caption.append(link);
+            figure.append(image, caption);
+            container.append(figure);
+        });
+    }
+
+    document.addEventListener('clear-post-selection', () => {
+        selectedPostId = '';
+        postPreviewReady = false;
+        pendingPostPreview = false;
+        clearTimeout(postPreviewTimeout);
+        postPreviewTimeout = null;
+        postEditor.hidden = true;
+        postSelect.value = '';
+    });
+
+    postSelect.addEventListener('change', () => {
+        const selected = posts.find(post => post.id === postSelect.value);
+        document.getElementById('post-result').hidden = true;
+        postEditorGrid.replaceChildren();
+        selectedPostId = selected?.id ?? '';
+        postPreviewReady = false;
+        sourceFileInput.value = '';
+        resultCurrent = false;
+        postStatus.classList.remove('error');
+        if (selected) {
+            showPostImages(selected, 'post-editor-grid');
+            postEditor.hidden = false;
+            document.getElementById('result-container').style.display = 'none';
+            document.getElementById('placeholder')?.remove();
+            postStatus.textContent = selected.images.length + ' images loaded into the editing canvas. Change a control to preview the effect.';
+        } else {
+            postEditor.hidden = true;
+            postStatus.textContent = 'Select a post to see its images.';
+        }
+        updateBusyState();
+    });
+
+    postButton.addEventListener('click', async () => {
+        if (active || pendingRender) return;
+        const selected = posts.find(post => post.id === postSelect.value);
+        if (!selected) return;
+        // Snapshot before disabling controls so every image receives identical settings.
+        const formData = new FormData(glitchForm);
+        ['photo', 'library_image', 'source_file'].forEach(key => formData.delete(key));
+        formData.set('action', 'glitch_post');
+        formData.set('post_id', selected.id);
+        active = true;
+        batchActive = true;
+        updateBusyState();
+        postStatus.classList.remove('error');
+        postStatus.textContent = 'Saving all ' + selected.images.length + ' glitched images…';
+        const result = document.getElementById('post-result');
+        result.hidden = true;
+        postEditor.setAttribute('aria-busy', 'true');
+        try {
+            const data = await post(formData);
+            if (!data.post?.images?.length) throw new Error('The server returned no post. Please try again.');
+            showPostImages(data.post, 'post-result-images', true);
+            document.getElementById('post-result-path').textContent = 'Saved to public/posts/' + data.post.id + '/';
+            const captionLink = document.getElementById('post-caption-link');
+            captionLink.hidden = !data.post.caption;
+            if (data.post.caption) captionLink.href = data.post.caption;
+            result.hidden = false;
+            postPreviewReady = false;
+            posts.unshift(data.post);
+            const option = document.createElement('option');
+            option.value = data.post.id;
+            option.textContent = data.post.title + ' — ' + data.post.id;
+            postSelect.append(option);
+            postStatus.textContent = 'Saved a new post with all ' + data.post.images.length + ' glitched images. Your originals are unchanged.';
+        } catch (error) {
+            postStatus.textContent = error instanceof SyntaxError ? 'The server returned an invalid response. Please try again.' : error.message;
+            postStatus.classList.add('error');
+        } finally {
+            active = false;
+            batchActive = false;
+            postEditor.setAttribute('aria-busy', 'false');
+            updateBusyState();
+            flushRender();
+        }
+    });
+
+    async function renderPostPreview() {
+        if (active || !selectedPostId || postPreviewTimeout !== null) return;
+        active = true;
+        pendingPostPreview = false;
+        resultCurrent = false;
+        const requestRevision = revision;
+        updateBusyState();
+        postStatus.textContent = 'Updating the collage preview…';
+        const formData = new FormData(glitchForm);
+        ['photo', 'library_image', 'source_file'].forEach(key => formData.delete(key));
+        formData.set('action', 'preview_post');
+        formData.set('post_id', selectedPostId);
+        try {
+            const data = await post(formData);
+            if (!data.post?.images?.length) throw new Error('The server returned no collage. Please try again.');
+            if (requestRevision === revision && selectedPostId === data.post.id) {
+                showPostImages(data.post, 'post-editor-grid');
+                postEditor.hidden = false;
+                postPreviewReady = true;
+                postStatus.textContent = 'Preview updated. Save when the whole post looks right.';
+            }
+        } catch (error) {
+            postStatus.textContent = error instanceof SyntaxError ? 'The server returned an invalid response. Please try again.' : error.message;
+            postStatus.classList.add('error');
+        } finally {
+            active = false;
+            updateBusyState();
+            flushRender();
+        }
+    }
+
+    function flushPostPreview() {
+        if (!selectedPostId || active || !pendingPostPreview || postPreviewTimeout !== null) return;
+        renderPostPreview();
     }
 
     function addLibraryImage(src, gridId) {
@@ -233,6 +393,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function flushRender() {
+        if (selectedPostId) {
+            flushPostPreview();
+            return;
+        }
         if (active || !pendingRender || timeout !== null) return;
         if (!sourceFileInput.value) {
             pendingRender = false;
@@ -247,6 +411,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function scheduleRender() {
         revision++;
+        if (selectedPostId) {
+            clearTimeout(postPreviewTimeout);
+            pendingPostPreview = true;
+            postPreviewReady = false;
+            resultCurrent = false;
+            postStatus.classList.remove('error');
+            postStatus.textContent = 'Preview queued…';
+            postPreviewTimeout = setTimeout(() => {
+                postPreviewTimeout = null;
+                flushPostPreview();
+            }, 180);
+            updateBusyState();
+            return;
+        }
         clearTimeout(timeout);
         if (!sourceFileInput.value && !active) return;
         pendingRender = true;
@@ -302,19 +480,44 @@ document.addEventListener('DOMContentLoaded', () => {
     glitchForm.addEventListener('reset-effects', resetEffects);
 
     document.getElementById('random-glitch-btn').addEventListener('click', () => {
+        const randomInteger = (minimum, maximum) => minimum + Math.floor(Math.random() * (maximum - minimum + 1));
+        const profiles = [
+            { mode: 'signal', preset: 'none', effects: ['rgb_shift', 'jitter', 'scanlines'], count: 2 },
+            { mode: 'vhs', preset: 'vintage', effects: ['rgb_shift', 'scanlines', 'chaos'], count: 3 },
+            { mode: 'mirror', preset: 'none', effects: ['jitter', 'v_jitter', 'chaos'], count: 3 },
+            { mode: 'melt', preset: 'sepia', effects: ['jitter', 'scanlines', 'chaos'], count: 3 },
+        ];
+        const safeRanges = {
+            rgb_shift: [4, 16],
+            jitter: [4, 20],
+            v_jitter: [0, 10],
+            scanlines: [2, 14],
+            chaos: [8, 24],
+        };
+        const profile = profiles[randomInteger(0, profiles.length - 1)];
+
+        // Start from a clean state so Surprise me never stacks new effects on old ones.
         controls.forEach(control => {
             if (control.type === 'range') {
-                const min = Number(control.min);
-                const step = Number(control.step) || 1;
-                const steps = Math.floor((Number(control.max) - min) / step);
-                control.value = min + Math.floor(Math.random() * (steps + 1)) * step;
+                control.value = control.defaultValue || (Number(control.min) < 0 ? '0' : control.min);
                 updateValue(control);
             } else if (control.type === 'checkbox') {
-                control.checked = Math.random() > 0.8;
+                control.checked = false;
             } else if (control.tagName === 'SELECT') {
-                control.selectedIndex = Math.floor(Math.random() * control.options.length);
-            } else if (control.type === 'color') {
-                control.value = '#' + Math.floor(Math.random() * 16777216).toString(16).padStart(6, '0');
+                control.selectedIndex = 0;
+            }
+        });
+        const mode = document.getElementById('glitch_mode');
+        const channelFilter = document.getElementById('channel_filter');
+        if (mode) mode.value = profile.mode;
+        presetFilter.value = profile.preset;
+        if (channelFilter) channelFilter.value = 'none';
+        profile.effects.slice(0, profile.count).forEach(id => {
+            const control = document.getElementById(id);
+            const range = safeRanges[id];
+            if (control && range) {
+                control.value = String(randomInteger(range[0], range[1]));
+                updateValue(control);
             }
         });
         updateDuotonePalette();
@@ -330,6 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
     glitchForm.addEventListener('submit', event => {
         event.preventDefault();
         if (active || pendingRender) return;
+        document.dispatchEvent(new Event('clear-post-selection'));
         if (!photoInput.files.length && !libImageInput.value && !sourceFileInput.value) {
             showStatus('Choose a JPEG or PNG to begin.', true);
             return;
@@ -339,6 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     photoInput.addEventListener('change', () => {
+        document.dispatchEvent(new Event('clear-post-selection'));
         libImageInput.value = '';
         resetEffects();
         updateBusyState();

@@ -27,6 +27,7 @@ class Element extends EventTarget {
     set alt(value) { this.setAttribute('alt', value); }
     append(...children) { this.children.push(...children); }
     prepend(child) { this.children.unshift(child); }
+    replaceChildren(...children) { this.children = [...children]; }
     querySelector() { return null; }
     remove() { this.removed = true; }
     requestSubmit() { this.dispatchEvent(new Event('submit', { cancelable: true })); }
@@ -37,8 +38,16 @@ function editor(source = 'original.png') {
         'select-lib-btn', 'glitched-preview', 'download-link', 'source_file', 'photo', 'submit',
         'save-output-btn', 'morph-btn', 'editor-status', 'result-container', 'placeholder',
         'random-glitch-btn', 'achims-special-btn', 'output-grid', 'library-grid', 'val_rgb_shift', 'preset_filter',
-        'duotone-palette', 'duotone-palette-status', 'duotone_shadow', 'duotone_highlight'];
+        'duotone-palette', 'duotone-palette-status', 'duotone_shadow', 'duotone_highlight',
+        'post-select', 'glitch-post-btn', 'post-status', 'post-data', 'post-preview', 'post-result',
+        'post-result-images', 'post-result-path', 'post-caption-link', 'post-editor-collage',
+        'post-editor-grid'];
     const elements = Object.fromEntries(ids.map(id => [id, new Element(id)]));
+    elements['post-data'].textContent = JSON.stringify([
+        { id: 'post_example', title: 'Example post', images: ['posts/post_example/post_0.png', 'posts/post_example/post_1.png'], caption: 'posts/post_example/post_text.txt' }
+    ]);
+    elements['post-result'].hidden = true;
+    elements['post-editor-collage'].hidden = true;
     const range = elements.rgb_shift = new Element('rgb_shift', 'range');
     Object.assign(range, { min: '0', max: '50', step: '1', value: '0' });
     Object.assign(elements.preset_filter, { tagName: 'SELECT', value: 'none', options: ['none', 'duotone'] });
@@ -143,6 +152,8 @@ test('randomizing effects replaces a pending slider update', async () => {
     const app = editor();
     app.input(1);
     app.click('random-glitch-btn');
+    assert.ok(Number(app.elements.rgb_shift.value) >= 0 && Number(app.elements.rgb_shift.value) <= 16);
+    assert.ok(['none', 'vintage', 'sepia'].includes(app.elements.preset_filter.value));
     app.tick();
     assert.equal(app.requests.length, 1);
     assert.equal(app.requests[0].body.get('rgb_shift'), String(app.elements.rgb_shift.value));
@@ -234,4 +245,59 @@ test('morph selects full library paths and subsequent controls edit the composit
     await app.reply(1, result('uploads/glitched_morph.png', 'morph.png'));
     assert.equal(app.elements['glitched-preview'].getAttribute('src'), 'uploads/glitched_morph.png');
     assert.equal(vm.runInContext('selectedImages.size', app.context), 0);
+});
+
+test('whole-post selection previews a collage and only an explicit save creates the post', async () => {
+    const app = editor();
+    const e = app.elements;
+    assert.equal(e['glitch-post-btn'].disabled, true);
+    e['post-select'].value = 'post_example';
+    e['post-select'].dispatchEvent(new Event('change'));
+    assert.equal(e['post-editor-grid'].children.length, 2);
+    assert.equal(e['glitch-post-btn'].disabled, true);
+    e.rgb_shift.value = '23';
+    e.preset_filter.value = 'duotone';
+    e.duotone_shadow.value = '#123456';
+    e.rgb_shift.dispatchEvent(new Event('input'));
+    app.tick();
+    assert.equal(app.requests.length, 1);
+    const body = app.requests[0].body;
+    assert.equal(body.get('action'), 'preview_post');
+    assert.equal(body.get('post_id'), 'post_example');
+    assert.equal(body.get('rgb_shift'), '23');
+    assert.equal(body.get('duotone_shadow'), '#123456');
+    for (const key of ['photo', 'source_file', 'library_image']) assert.equal(body.has(key), false);
+    const preview = { id: 'post_example', title: 'Example post', images: ['uploads/post_preview_0.png', 'uploads/post_preview_1.png'], caption: 'posts/post_example/post_text.txt' };
+    await app.reply(0, { success: true, post: preview });
+    assert.equal(e['post-editor-grid'].children.length, 2);
+    assert.equal(e['glitch-post-btn'].disabled, false);
+    app.click('glitch-post-btn');
+    assert.equal(app.requests.length, 2);
+    assert.equal(app.requests[1].body.get('action'), 'glitch_post');
+    const saved = { id: 'post_saved', title: 'Example post (glitched)', images: ['posts/post_saved/post_0.png', 'posts/post_saved/post_1.png'], caption: 'posts/post_saved/post_text.txt' };
+    await app.reply(1, { success: true, post: saved });
+    assert.equal(e['post-result'].hidden, false);
+    assert.equal(e['post-result-images'].children.length, 2);
+    assert.equal(e['post-caption-link'].href, saved.caption);
+    assert.equal(e.rgb_shift.disabled, false);
+});
+
+test('failed post processing unlocks controls and allows retry with the same post', async () => {
+    const app = editor('');
+    app.elements['post-select'].value = 'post_example';
+    app.elements['post-select'].dispatchEvent(new Event('change'));
+    app.elements.rgb_shift.dispatchEvent(new Event('input'));
+    app.tick();
+    app.click('glitch-post-btn');
+    await app.reply(0, { success: true, post: { id: 'post_example', title: 'Example post', images: ['uploads/preview.png'], caption: null } });
+    assert.equal(app.elements['glitch-post-btn'].disabled, false);
+    app.click('glitch-post-btn');
+    await app.reply(1, { success: false, error: 'Unable to process post_1.png.' });
+    assert.equal(app.elements['post-result'].hidden, true);
+    assert.equal(app.elements['post-status'].classList.contains('error'), true);
+    assert.equal(app.elements.rgb_shift.disabled, false);
+    assert.equal(app.elements['glitch-post-btn'].disabled, false);
+    app.click('glitch-post-btn');
+    assert.equal(app.requests.length, 3);
+    assert.equal(app.requests[2].body.get('post_id'), 'post_example');
 });

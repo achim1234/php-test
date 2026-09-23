@@ -12,6 +12,7 @@ use App\Image\GlitchProcessor;
 use App\Image\ImageMorpher;
 use App\Image\PixelTransformer;
 use App\Storage\ImageStorage;
+use App\Storage\PostStorage;
 
 $imageFile = new GdImageFile();
 $pixels = new PixelTransformer();
@@ -26,4 +27,5 @@ return new GlitchController(
     ),
     new ImageMorpher($imageFile),
     new GlitchOptionsFactory(),
+    new PostStorage(__DIR__ . '/../public/posts'),
 );

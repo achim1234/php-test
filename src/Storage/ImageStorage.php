@@ -120,6 +120,26 @@ final readonly class ImageStorage
     /**
      * @return array{filename: string, path: string}
      */
+    public function createPostPreviewDestination(string $sourceFilename): array
+    {
+        $extension = pathinfo($sourceFilename, PATHINFO_EXTENSION) ?: 'png';
+        $filename = 'post_preview_' . bin2hex(random_bytes(10)) . '.' . $extension;
+
+        return ['filename' => $filename, 'path' => $this->uploadDirectory . $filename];
+    }
+
+    public function clearPostPreviews(): void
+    {
+        foreach (glob($this->uploadDirectory . 'post_preview_*') ?: [] as $path) {
+            if (is_file($path) && !is_link($path)) {
+                unlink($path);
+            }
+        }
+    }
+
+    /**
+     * @return array{filename: string, path: string}
+     */
     public function createMorphDestination(string $sourcePath): array
     {
         $extension = pathinfo($sourcePath, PATHINFO_EXTENSION);

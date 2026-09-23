@@ -237,6 +237,14 @@ $sourceFile = $data['sourceFile'];
                         </div>
                         <span class="live-label">Preview</span>
                     </div>
+                <div id="post-editor-collage" class="post-editor-collage" hidden>
+                    <div class="post-editor-heading">
+                        <p class="kicker">Editing canvas</p>
+                        <h3>Post collage</h3>
+                        <small>Turn the controls above to preview the effect across every image.</small>
+                    </div>
+                    <div id="post-editor-grid" class="post-image-grid"></div>
+                </div>
                 <div id="result-container" <?php echo !$glitchedImage ? 'style="display: none;"' : ''; ?>>
                     <div class="image-frame">
                         <img id="glitched-preview" src="<?php echo htmlspecialchars($glitchedImage ?? ''); ?>" alt="Glitched photo">
@@ -256,6 +264,40 @@ $sourceFile = $data['sourceFile'];
                 <?php endif; ?>
                 </section>
             </div>
+
+            <section class="collection post-section" aria-labelledby="posts-title">
+                <div class="collection-heading">
+                    <div>
+                        <p class="kicker">One treatment. Every image.</p>
+                        <h2 id="posts-title">Glitch a whole post</h2>
+                    </div>
+                    <a href="#controls-title" class="clear-link">Adjust effects ↑</a>
+                </div>
+                <p class="post-description">Choose a post and apply the current effects above to every image, including its overview. A new copy is saved with the post text; your originals stay intact.</p>
+                <?php $posts = $controller->getPosts(); ?>
+                <div class="post-toolbar">
+                    <div class="select-control">
+                        <label for="post-select">Select a post</label>
+                        <select id="post-select" aria-describedby="post-status">
+                            <option value="">Choose a post…</option>
+                            <?php foreach ($posts as $post): ?>
+                                <option value="<?php echo htmlspecialchars($post['id']); ?>"><?php echo htmlspecialchars($post['title'] . ' — ' . $post['id']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button type="button" id="glitch-post-btn" class="download-button" disabled>Save glitched post ↗</button>
+                </div>
+                <p id="post-status" role="status" aria-live="polite"><?php echo $posts === [] ? 'No posts yet. Add a post folder to public/posts/ to begin.' : 'Select a post to load it into the editing canvas.'; ?></p>
+                <div id="post-result" hidden>
+                    <div class="library-heading">
+                        <div><span>✓</span><h3>Glitched post saved</h3></div>
+                        <a id="post-caption-link" class="clear-link" download>Download post text</a>
+                    </div>
+                    <p id="post-result-path" class="post-description"></p>
+                    <div id="post-result-images" class="post-image-grid"></div>
+                </div>
+                <script id="post-data" type="application/json"><?php echo json_encode($posts, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE); ?></script>
+            </section>
 
             <section class="collection" aria-labelledby="collection-title">
                 <div class="collection-heading">
